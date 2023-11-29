@@ -1,0 +1,1 @@
+# mindia-core-rust
