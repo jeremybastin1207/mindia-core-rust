@@ -1,8 +1,5 @@
-extern crate redis;
-extern crate serde_json;
-
 use redis::Commands;
-use serde_json::json;
+use serde_json::{from_str, json, to_string};
 use std::collections::HashMap;
 use std::error::Error;
 
@@ -14,8 +11,8 @@ pub trait ApiKeyStorage: Send + Sync {
     fn get_all(&mut self) -> Result<ApiKeyMap, Box<dyn Error>>;
     fn get_by_name(&mut self, name: &str) -> Result<Option<ApiKey>, Box<dyn Error>>;
     fn get_by_key(&mut self, key: &str) -> Result<Option<ApiKey>, Box<dyn Error>>;
-    /*     fn save(&self, apikey: ApiKey) -> Result<(), Box<dyn Error>>;
-    fn delete(&self, apikey: &str) -> Result<(), Box<dyn Error>>; */
+    fn save(&mut self, apikey: ApiKey) -> Result<(), Box<dyn Error>>;
+    fn delete(&mut self, apikey: &str) -> Result<(), Box<dyn Error>>;
 }
 
 type ApiKeyMap = HashMap<String, ApiKey>;
@@ -73,5 +70,29 @@ impl ApiKeyStorage for RedisApiKeyStorage {
             }
         }
         Err("API key not found".into())
+    }
+
+    fn save(&mut self, apikey: ApiKey) -> Result<(), Box<dyn Error>> {
+        let apikeys_json: String = self.conn.get(API_KEYS_KEY)?;
+        let mut apikeys: HashMap<String, ApiKey> = from_str(&apikeys_json)?;
+
+        apikeys.insert(apikey.name.clone(), apikey);
+
+        let updated_apikeys_json = to_string(&apikeys)?;
+        self.conn.set(API_KEYS_KEY, updated_apikeys_json)?;
+
+        Ok(())
+    }
+
+    fn delete(&mut self, apikey_name: &str) -> Result<(), Box<dyn Error>> {
+        let apikeys_json: String = self.conn.get(API_KEYS_KEY)?;
+        let mut apikeys: HashMap<String, ApiKey> = from_str(&apikeys_json)?;
+
+        apikeys.remove(apikey_name);
+
+        let updated_apikeys_json = to_string(&apikeys)?;
+        self.conn.set(API_KEYS_KEY, updated_apikeys_json)?;
+
+        Ok(())
     }
 }

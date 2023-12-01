@@ -1,30 +1,28 @@
-use actix_web::{App, HttpServer};
+use actix_web::{web, App, HttpServer};
 use dotenv::dotenv;
 use redis::Client;
 use std::env;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use crate::api::{get_apikeys, AppState};
-use crate::apikey_storage::{ApiKeyStorage, RedisApiKeyStorage};
-
 mod api;
 mod apikey;
 mod apikey_storage;
+mod app_state;
+
+use crate::api::{delete_apikey, get_apikeys, save_apikey};
+use crate::apikey_storage::{ApiKeyStorage, RedisApiKeyStorage};
+use crate::app_state::AppState;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
-    let client = match Client::open("redis://127.0.0.1:6379") {
-        Ok(client) => client,
-        Err(e) => {
-            eprintln!("Error creating Redis client: {}", e);
-            return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
-        }
-    };
-    let apikey_storage: Arc<Mutex<dyn ApiKeyStorage>> =
-        Arc::new(Mutex::new(RedisApiKeyStorage::new(client).unwrap()));
+    let client = Client::open("redis://127.0.0.1:6379").expect("Error creating Redis client");
+
+    let apikey_storage: Arc<Mutex<dyn ApiKeyStorage>> = Arc::new(Mutex::new(
+        RedisApiKeyStorage::new(client).expect("Error creating RedisApiKeyStorage"),
+    ));
 
     let port = env::var("PORT").unwrap_or_else(|_| String::from("8080"));
     let bind_address = format!("127.0.0.1:{}", port);
@@ -34,7 +32,12 @@ async fn main() -> std::io::Result<()> {
             .app_data(AppState {
                 apikey_storage: Arc::clone(&apikey_storage),
             })
-            .service(get_apikeys)
+            .service(
+                web::scope("/api/v0")
+                    .service(get_apikeys)
+                    .service(save_apikey)
+                    .service(delete_apikey),
+            )
     })
     .bind(&bind_address)?;
 
