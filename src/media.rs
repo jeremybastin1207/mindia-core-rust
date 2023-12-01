@@ -1,4 +1,7 @@
+use serde::{Deserialize, Serialize};
+use std::clone::Clone;
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -13,7 +16,7 @@ pub struct Tag {
     provider: String,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Media {
     path: Path,
     body: Body,
@@ -26,7 +29,7 @@ pub struct Media {
     updated_at: Option<SystemTime>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct DerivedMedia {
     path: Path,
     body: Body,

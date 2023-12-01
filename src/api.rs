@@ -1,21 +1,22 @@
-use actix_web::middleware::Logger;
-use actix_web::{get, web, web::Data, HttpResponse, Responder, Result};
+use actix_web::{get, web, HttpResponse, Responder};
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use crate::apikey::ApiKey;
 use crate::apikey_storage::ApiKeyStorage;
 
 pub struct AppState {
-    pub apikey_storage: Arc<dyn ApiKeyStorage>,
+    pub apikey_storage: Arc<Mutex<dyn ApiKeyStorage>>,
 }
 
 #[get("/apikeys")]
-pub async fn get_apikeys(data: Data<AppState>) -> Result<impl Responder> {
-    match data.apikey_storage.get_all() {
+pub async fn get_apikeys(data: web::Data<AppState>) -> impl Responder {
+    let mut apikey_storage = data.apikey_storage.lock().unwrap();
+    match apikey_storage.get_all() {
         Ok(api_keys) => {
             let api_keys: Vec<ApiKey> = api_keys.into_iter().map(|(_, v)| v).collect();
-            Ok(web::Json(api_keys))
+            HttpResponse::Ok().json(api_keys)
         }
-        Err(_) => HttpResponse::InternalServerError().finish(),
+        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }
 }

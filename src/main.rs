@@ -3,6 +3,7 @@ use dotenv::dotenv;
 use redis::Client;
 use std::env;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use crate::api::{get_apikeys, AppState};
 use crate::apikey_storage::{ApiKeyStorage, RedisApiKeyStorage};
@@ -22,19 +23,13 @@ async fn main() -> std::io::Result<()> {
             return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
         }
     };
-    let conn = match client.get_connection() {
-        Ok(conn) => conn,
-        Err(e) => {
-            eprintln!("Error getting Redis connection: {}", e);
-            return Err(std::io::Error::new(std::io::ErrorKind::Other, e));
-        }
-    };
-    let apikey_storage: Arc<dyn ApiKeyStorage> = Arc::new(RedisApiKeyStorage::new(conn));
+    let apikey_storage: Arc<Mutex<dyn ApiKeyStorage>> =
+        Arc::new(Mutex::new(RedisApiKeyStorage::new(client).unwrap()));
 
     let port = env::var("PORT").unwrap_or_else(|_| String::from("8080"));
     let bind_address = format!("127.0.0.1:{}", port);
 
-    let server = HttpServer::new(|| {
+    let server = HttpServer::new(move || {
         App::new()
             .app_data(AppState {
                 apikey_storage: Arc::clone(&apikey_storage),

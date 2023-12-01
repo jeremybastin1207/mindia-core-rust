@@ -11,9 +11,9 @@ const API_KEYS_KEY: &str = "internal:configuration:api_keys";
 use crate::apikey::ApiKey;
 
 pub trait ApiKeyStorage: Send + Sync {
-    fn get_by_name(&self, name: &str) -> Result<ApiKey, Box<dyn Error>>;
-    fn get_by_key(&self, key: &str) -> Result<ApiKey, Box<dyn Error>>;
-    fn get_all(&self) -> Result<ApiKeyMap, Box<dyn Error>>;
+    fn get_all(&mut self) -> Result<ApiKeyMap, Box<dyn Error>>;
+    fn get_by_name(&mut self, name: &str) -> Result<Option<ApiKey>, Box<dyn Error>>;
+    fn get_by_key(&mut self, key: &str) -> Result<Option<ApiKey>, Box<dyn Error>>;
     /*     fn save(&self, apikey: ApiKey) -> Result<(), Box<dyn Error>>;
     fn delete(&self, apikey: &str) -> Result<(), Box<dyn Error>>; */
 }
@@ -27,12 +27,12 @@ pub struct RedisApiKeyStorage {
 impl RedisApiKeyStorage {
     pub fn new(client: redis::Client) -> Result<Self, Box<dyn Error>> {
         let conn = client.get_connection()?;
-        let storage = RedisApiKeyStorage { conn };
+        let mut storage = RedisApiKeyStorage { conn };
         storage.init()?;
         Ok(storage)
     }
 
-    fn init(&self) -> Result<(), Box<dyn Error>> {
+    fn init(&mut self) -> Result<(), Box<dyn Error>> {
         let res: Option<String> = self.conn.get(API_KEYS_KEY)?;
         match res {
             Some(_) => Ok(()),
@@ -46,7 +46,7 @@ impl RedisApiKeyStorage {
 }
 
 impl ApiKeyStorage for RedisApiKeyStorage {
-    fn get_all(&self) -> Result<ApiKeyMap, Box<dyn Error>> {
+    fn get_all(&mut self) -> Result<ApiKeyMap, Box<dyn Error>> {
         let res: Option<String> = self.conn.get(API_KEYS_KEY)?;
         match res {
             Some(val) => {
@@ -57,7 +57,7 @@ impl ApiKeyStorage for RedisApiKeyStorage {
         }
     }
 
-    fn get_by_name(&self, name: &str) -> Result<Option<ApiKey>, Box<dyn Error>> {
+    fn get_by_name(&mut self, name: &str) -> Result<Option<ApiKey>, Box<dyn Error>> {
         let api_keys = self.get_all()?;
         match api_keys.get(name) {
             Some(api_key) => Ok(Some(api_key.clone())),
@@ -65,7 +65,7 @@ impl ApiKeyStorage for RedisApiKeyStorage {
         }
     }
 
-    fn get_by_key(&self, key: &str) -> Result<Option<ApiKey>, Box<dyn Error>> {
+    fn get_by_key(&mut self, key: &str) -> Result<Option<ApiKey>, Box<dyn Error>> {
         let api_keys = self.get_all()?;
         for api_key in api_keys.values() {
             if api_key.key == key {
