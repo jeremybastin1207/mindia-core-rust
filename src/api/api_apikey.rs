@@ -1,7 +1,7 @@
 use actix_web::{delete, get, post, web, HttpResponse, Responder};
 
+use crate::api::app_state::AppState;
 use crate::apikey::ApiKey;
-use crate::app_state::AppState;
 
 #[get("/apikey")]
 pub async fn get_apikeys(data: web::Data<AppState>) -> impl Responder {

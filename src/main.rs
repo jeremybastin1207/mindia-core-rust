@@ -7,12 +7,16 @@ use std::sync::Mutex;
 
 mod api;
 mod apikey;
-mod apikey_storage;
-mod app_state;
+mod media;
+mod named_transformation;
+mod types;
 
-use crate::api::{delete_apikey, get_apikeys, save_apikey};
-use crate::apikey_storage::{ApiKeyStorage, RedisApiKeyStorage};
-use crate::app_state::AppState;
+use crate::api::{
+    delete_apikey, delete_named_transformation, get_apikeys, get_named_transformations,
+    save_apikey, save_named_transformation, AppState,
+};
+use crate::apikey::{ApiKeyStorage, RedisApiKeyStorage};
+use crate::named_transformation::{NamedTransformationStorage, RedisNamedTransformationStorage};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -21,8 +25,14 @@ async fn main() -> std::io::Result<()> {
     let client = Client::open("redis://127.0.0.1:6379").expect("Error creating Redis client");
 
     let apikey_storage: Arc<Mutex<dyn ApiKeyStorage>> = Arc::new(Mutex::new(
-        RedisApiKeyStorage::new(client).expect("Error creating RedisApiKeyStorage"),
+        RedisApiKeyStorage::new(client.clone()).expect("Error creating RedisApiKeyStorage"),
     ));
+
+    let named_transformation_storage: Arc<Mutex<dyn NamedTransformationStorage>> =
+        Arc::new(Mutex::new(
+            RedisNamedTransformationStorage::new(client.clone())
+                .expect("Error creating RedisNamedTransformationStorage"),
+        ));
 
     let port = env::var("PORT").unwrap_or_else(|_| String::from("8080"));
     let bind_address = format!("127.0.0.1:{}", port);
@@ -31,12 +41,16 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(AppState {
                 apikey_storage: Arc::clone(&apikey_storage),
+                named_transformation_storage: Arc::clone(&named_transformation_storage),
             })
             .service(
                 web::scope("/api/v0")
                     .service(get_apikeys)
                     .service(save_apikey)
-                    .service(delete_apikey),
+                    .service(delete_apikey)
+                    .service(get_named_transformations)
+                    .service(save_named_transformation)
+                    .service(delete_named_transformation),
             )
     })
     .bind(&bind_address)?;

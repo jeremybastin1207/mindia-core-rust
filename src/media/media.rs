@@ -2,14 +2,14 @@ use serde::{Deserialize, Serialize};
 use std::clone::Clone;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::path::Path;
+use std::path::PathBuf;
 use std::time::SystemTime;
 
 pub type Body = Vec<u8>;
 pub type ContentLength = usize;
 pub type Metadata = HashMap<String, String>;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Tag {
     value: String,
     confidence_score: f32,
@@ -18,7 +18,7 @@ pub struct Tag {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct Media {
-    path: Path,
+    path: PathBuf,
     body: Body,
     content_type: Option<String>,
     content_length: ContentLength,
@@ -31,7 +31,7 @@ pub struct Media {
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct DerivedMedia {
-    path: Path,
+    path: PathBuf,
     body: Body,
     content_type: Option<String>,
     content_length: ContentLength,
