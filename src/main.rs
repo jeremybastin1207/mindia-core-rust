@@ -9,11 +9,14 @@ mod api;
 mod apikey;
 mod media;
 mod named_transformation;
+mod storage;
+mod task;
+mod transformation;
 mod types;
 
 use crate::api::{
     delete_apikey, delete_named_transformation, get_apikeys, get_named_transformations,
-    save_apikey, save_named_transformation, AppState,
+    save_apikey, save_named_transformation, upload, AppState,
 };
 use crate::apikey::{ApiKeyStorage, RedisApiKeyStorage};
 use crate::named_transformation::{NamedTransformationStorage, RedisNamedTransformationStorage};
@@ -50,7 +53,8 @@ async fn main() -> std::io::Result<()> {
                     .service(delete_apikey)
                     .service(get_named_transformations)
                     .service(save_named_transformation)
-                    .service(delete_named_transformation),
+                    .service(delete_named_transformation)
+                    .service(upload),
             )
     })
     .bind(&bind_address)?;
