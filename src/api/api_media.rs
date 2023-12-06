@@ -8,6 +8,8 @@ use std::io::Write;
 
 #[post("/upload")]
 pub async fn upload(mut payload: Multipart) -> Result<HttpResponse, Box<dyn Error>> {
+    let mut metadata = String::new();
+
     while let Some(item) = payload.next().await {
         let mut field = item?;
         let content_disposition = field.content_disposition();
@@ -22,6 +24,17 @@ pub async fn upload(mut payload: Multipart) -> Result<HttpResponse, Box<dyn Erro
                 let data = chunk?;
                 file.write_all(&data)?;
             }
+        } else if field_name == "metadata" {
+            while let Some(chunk) = field.next().await {
+                let data = chunk?;
+                metadata.push_str(std::str::from_utf8(&data)?);
+            }
+
+            let json_filepath = format!("./metadata.json");
+            let mut json_file = File::create(json_filepath)?;
+
+            // Assuming the metadata is a valid JSON string
+            json_file.write_all(metadata.as_bytes())?;
         }
     }
 
