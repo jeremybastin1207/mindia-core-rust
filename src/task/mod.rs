@@ -1,4 +1,3 @@
-/* pub mod upload_media;
+pub mod upload_media;
 
 pub use upload_media::UploadMedia;
- */

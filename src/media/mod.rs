@@ -1,3 +1,3 @@
 pub mod media;
 
-pub use media::{DerivedMedia, Media, Tag};
+pub use media::{MediaHandler, MediaLogicGroupHandler};
