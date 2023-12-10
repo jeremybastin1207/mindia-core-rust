@@ -1,3 +1,5 @@
+use bytes::Bytes;
+use std::error::Error;
 use std::fs;
 use std::path::Path;
 
@@ -16,12 +18,18 @@ impl FilesystemStorage {
 }
 
 impl Storage for FilesystemStorage {
-    fn upload(&self, data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+    fn upload(&self, path: &str, data: Bytes) -> Result<(), Box<dyn Error>> {
         println!("Uploading to Filesystem");
 
-        let path = Path::new(&self.mount_dir).join("file.jpeg");
+        let dir_path = Path::new(&self.mount_dir);
 
-        fs::write(path, data)?;
+        let full_path = Path::new(&self.mount_dir).join(path);
+
+        if let Some(parent) = full_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        fs::write(&full_path, data)?;
 
         Ok(())
     }

@@ -1,7 +1,6 @@
+use bytes::BytesMut;
 use std::error::Error;
 use std::sync::Arc;
-
-use bytes::BytesMut;
 
 use crate::storage::Storage;
 
@@ -15,7 +14,6 @@ impl UploadMedia {
     }
 
     pub fn upload(&self, picture_data: BytesMut) -> Result<(), Box<dyn Error>> {
-        let byte_slice: &[u8] = picture_data.as_ref();
-        self.storage.upload(byte_slice)
+        self.storage.upload("test/test.jpeg", picture_data.into())
     }
 }

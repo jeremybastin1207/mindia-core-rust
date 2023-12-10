@@ -1,3 +1,6 @@
+use bytes::Bytes;
+use std::error::Error;
+
 pub trait Storage {
-    fn upload(&self, data: &[u8]) -> Result<(), Box<dyn std::error::Error>>;
+    fn upload(&self, path: &str, data: Bytes) -> Result<(), Box<dyn Error>>;
 }

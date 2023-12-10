@@ -1,6 +1,3 @@
-use redis::Commands;
-use serde_json::{from_str, json, to_string};
-use std::collections::HashMap;
 use std::error::Error;
 
 const API_KEYS_KEY: &str = "internal:configuration:api_keys";
@@ -20,68 +17,60 @@ impl RedisApiKeyStorage {
     }
 
     fn init(&mut self) -> Result<(), Box<dyn Error>> {
-        let res: Option<String> = self.conn.get(API_KEYS_KEY)?;
-        match res {
-            Some(_) => Ok(()),
-            None => {
-                let empty_json = json!({});
-                self.conn.set(API_KEYS_KEY, empty_json.to_string())?;
-                Ok(())
-            }
+        let exists: bool = redis::cmd("EXISTS")
+            .arg(API_KEYS_KEY)
+            .query(&mut self.conn)?;
+
+        if !exists {
+            redis::cmd("JSON.SET")
+                .arg(API_KEYS_KEY)
+                .arg(".")
+                .arg("{}")
+                .query(&mut self.conn)?;
         }
+
+        Ok(())
     }
 }
 
 impl ApiKeyStorage for RedisApiKeyStorage {
     fn get_all(&mut self) -> Result<ApiKeyMap, Box<dyn Error>> {
-        let res: Option<String> = self.conn.get(API_KEYS_KEY)?;
-        match res {
-            Some(val) => {
-                let api_keys: ApiKeyMap = serde_json::from_str(&val)?;
-                Ok(api_keys)
-            }
-            None => Err("No API keys found".into()),
-        }
+        let result: String = redis::cmd("JSON.GET")
+            .arg(API_KEYS_KEY)
+            .query(&mut self.conn)?;
+
+        serde_json::from_str(&result).map_err(|e| e.into())
     }
 
     fn get_by_name(&mut self, name: &str) -> Result<Option<ApiKey>, Box<dyn Error>> {
-        let api_keys = self.get_all()?;
-        match api_keys.get(name) {
-            Some(api_key) => Ok(Some(api_key.clone())),
-            None => Err("API key not found".into()),
-        }
-    }
+        let result: Option<String> = redis::cmd("JSON.GET")
+            .arg(API_KEYS_KEY)
+            .arg(name)
+            .query(&mut self.conn)?;
 
-    fn get_by_key(&mut self, key: &str) -> Result<Option<ApiKey>, Box<dyn Error>> {
-        let api_keys = self.get_all()?;
-        for api_key in api_keys.values() {
-            if api_key.key == key {
-                return Ok(Some(api_key.clone()));
-            }
-        }
-        Err("API key not found".into())
+        result
+            .map(|json| serde_json::from_str(&json))
+            .transpose()
+            .map_err(|e| e.into())
     }
 
     fn save(&mut self, apikey: ApiKey) -> Result<(), Box<dyn Error>> {
-        let apikeys_json: String = self.conn.get(API_KEYS_KEY)?;
-        let mut apikeys: HashMap<String, ApiKey> = from_str(&apikeys_json)?;
+        let apikey_json = serde_json::to_string(&apikey)?;
 
-        apikeys.insert(apikey.name.clone(), apikey);
-
-        let updated_apikeys_json = to_string(&apikeys)?;
-        self.conn.set(API_KEYS_KEY, updated_apikeys_json)?;
+        redis::cmd("JSON.SET")
+            .arg(API_KEYS_KEY)
+            .arg(apikey.name)
+            .arg(apikey_json)
+            .query(&mut self.conn)?;
 
         Ok(())
     }
 
     fn delete(&mut self, apikey_name: &str) -> Result<(), Box<dyn Error>> {
-        let apikeys_json: String = self.conn.get(API_KEYS_KEY)?;
-        let mut apikeys: HashMap<String, ApiKey> = from_str(&apikeys_json)?;
-
-        apikeys.remove(apikey_name);
-
-        let updated_apikeys_json = to_string(&apikeys)?;
-        self.conn.set(API_KEYS_KEY, updated_apikeys_json)?;
+        redis::cmd("JSON.DEL")
+            .arg(API_KEYS_KEY)
+            .arg(apikey_name)
+            .query(&mut self.conn)?;
 
         Ok(())
     }

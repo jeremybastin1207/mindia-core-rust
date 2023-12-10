@@ -1,3 +1,3 @@
-pub mod media;
+pub mod media_handler;
 
-pub use media::{MediaHandler, MediaLogicGroupHandler};
+pub use media_handler::{MediaHandler, MediaLogicGroupHandler};

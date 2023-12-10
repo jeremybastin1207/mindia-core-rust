@@ -1,3 +1,6 @@
+use bytes::Bytes;
+use std::error::Error;
+
 use crate::adapter::s3::S3;
 use crate::storage::storage_trait::Storage;
 
@@ -12,7 +15,7 @@ impl S3Storage {
 }
 
 impl Storage for S3Storage {
-    fn upload(&self, data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+    fn upload(&self, path: &str, data: Bytes) -> Result<(), Box<dyn Error>> {
         println!("Uploading to S3");
         Ok(())
     }

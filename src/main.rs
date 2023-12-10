@@ -6,9 +6,12 @@ use std::env;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+extern crate exif;
+
 mod adapter;
 mod api;
 mod apikey;
+mod extractor;
 mod media;
 mod metadata;
 mod named_transformation;
@@ -28,10 +31,11 @@ use crate::storage::{FilesystemStorage, S3Storage};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    dotenv().ok();
-
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     //std::env::set_var("RUST_LOG", "debug");
     //env_logger::init();
+
+    dotenv().expect("Failed to read .env file");
 
     let redis_client = Client::open("redis://127.0.0.1:6379").expect("Error creating Redis client");
 
@@ -47,7 +51,7 @@ async fn main() -> std::io::Result<()> {
                 .expect("Error creating RedisNamedTransformationStorage"),
         ));
 
-    let s3_storage = Arc::new(S3Storage::new(s3_client));
+    let _s3_storage = Arc::new(S3Storage::new(s3_client));
     let filesystem_storage = Arc::new(FilesystemStorage::new());
 
     let port = env::var("PORT").unwrap_or_else(|_| String::from("8080"));
