@@ -1,9 +1,9 @@
 use std::error::Error;
 
-pub trait ApiKeyStorage: Send + Sync {
-    fn get_all(&mut self) -> Result<ApiKeyMap, Box<dyn Error>>;
-    fn get_by_name(&mut self, name: &str) -> Result<Option<ApiKey>, Box<dyn Error>>;
-    fn get_by_key(&mut self, key: &str) -> Result<Option<ApiKey>, Box<dyn Error>>;
-    fn save(&mut self, apikey: ApiKey) -> Result<(), Box<dyn Error>>;
-    fn delete(&mut self, apikey: &str) -> Result<(), Box<dyn Error>>;
+use crate::metadata::Metadata;
+
+pub trait MetadataStorage: Send + Sync {
+    // fn get_by_path(&self, path: &str) -> Result<Option<Metadata>, Box<dyn Error>>;
+    fn save(&mut self, path: &str, metadata: Metadata) -> Result<(), Box<dyn Error>>;
+    fn delete(&mut self, path: &str) -> Result<(), Box<dyn Error>>;
 }

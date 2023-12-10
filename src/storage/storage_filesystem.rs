@@ -3,7 +3,7 @@ use std::error::Error;
 use std::fs;
 use std::path::Path;
 
-use crate::storage::storage_trait::Storage;
+use crate::storage::storage_trait::FileStorage;
 
 pub struct FilesystemStorage {
     pub mount_dir: String,
@@ -17,11 +17,13 @@ impl FilesystemStorage {
     }
 }
 
-impl Storage for FilesystemStorage {
+impl FileStorage for FilesystemStorage {
     fn upload(&self, path: &str, data: Bytes) -> Result<(), Box<dyn Error>> {
         println!("Uploading to Filesystem");
 
         let dir_path = Path::new(&self.mount_dir);
+
+        let path = path.strip_prefix("/").unwrap_or(path);
 
         let full_path = Path::new(&self.mount_dir).join(path);
 

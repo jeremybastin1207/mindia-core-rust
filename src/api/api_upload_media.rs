@@ -5,6 +5,7 @@ use futures::StreamExt;
 use std::error::Error;
 
 use crate::api::app_state::AppState;
+use crate::media::Path;
 
 #[post("/upload")]
 pub async fn upload(
@@ -12,6 +13,7 @@ pub async fn upload(
     mut payload: Multipart,
 ) -> Result<HttpResponse, Box<dyn Error>> {
     let mut metadata = String::new();
+    let mut filename = String::new();
     let mut filedata = BytesMut::new();
 
     while let Some(item) = payload.next().await {
@@ -20,6 +22,8 @@ pub async fn upload(
         let field_name = content_disposition.get_name().unwrap();
 
         if field_name == "file" {
+            filename = content_disposition.get_filename().unwrap().to_string();
+
             while let Some(chunk) = field.next().await {
                 let data = chunk?;
                 filedata.extend_from_slice(&data);
@@ -32,7 +36,8 @@ pub async fn upload(
         }
     }
 
-    data.upload_media.upload(filedata)?;
+    data.upload_media
+        .upload(Path::new("/".to_owned() + &filename)?, filedata)?;
 
     Ok(HttpResponse::Ok().body("File uploaded successfully"))
 }

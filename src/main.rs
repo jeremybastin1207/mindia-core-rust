@@ -1,6 +1,7 @@
 use actix_web::{web, App, HttpServer};
 use dotenv::dotenv;
 // use env_logger;
+// use env_logger::Env;
 use redis::Client;
 use std::env;
 use std::sync::Arc;
@@ -26,12 +27,13 @@ use crate::api::{
     save_apikey, save_named_transformation, upload, AppState,
 };
 use crate::apikey::{ApiKeyStorage, RedisApiKeyStorage};
+use crate::metadata::{MetadataStorage, RedisMetadataStorage};
 use crate::named_transformation::{NamedTransformationStorage, RedisNamedTransformationStorage};
-use crate::storage::{FilesystemStorage, S3Storage};
+use crate::storage::{FileStorage, FilesystemStorage, S3Storage};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    //env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     //std::env::set_var("RUST_LOG", "debug");
     //env_logger::init();
 
@@ -51,8 +53,14 @@ async fn main() -> std::io::Result<()> {
                 .expect("Error creating RedisNamedTransformationStorage"),
         ));
 
-    let _s3_storage = Arc::new(S3Storage::new(s3_client));
-    let filesystem_storage = Arc::new(FilesystemStorage::new());
+    let metadata_storage: Arc<Mutex<dyn MetadataStorage>> = Arc::new(Mutex::new(
+        RedisMetadataStorage::new(redis_client.clone())
+            .expect("Error creating RedisMetadataStorage"),
+    ));
+
+    let _s3_storage: Arc<Mutex<dyn FileStorage>> = Arc::new(Mutex::new(S3Storage::new(s3_client)));
+    let filesystem_storage: Arc<Mutex<dyn FileStorage>> =
+        Arc::new(Mutex::new(FilesystemStorage::new()));
 
     let port = env::var("PORT").unwrap_or_else(|_| String::from("8080"));
     let bind_address = format!("127.0.0.1:{}", port);
@@ -62,7 +70,10 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(AppState {
                 apikey_storage: Arc::clone(&apikey_storage),
                 named_transformation_storage: Arc::clone(&named_transformation_storage),
-                upload_media: Arc::new(task::UploadMedia::new(filesystem_storage.clone())),
+                upload_media: Arc::new(task::UploadMedia::new(
+                    Arc::clone(&filesystem_storage),
+                    Arc::clone(&metadata_storage),
+                )),
             }))
             .service(
                 web::scope("/api/v0")

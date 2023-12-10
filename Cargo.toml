@@ -3,6 +3,14 @@ name = "mindia-core"
 version = "0.1.0"
 edition = "2021"
 
+[dependencies.uuid]
+version = "1.6.1"
+features = [
+  "v4",                # Lets you generate random UUIDs
+  "fast-rng",          # Use a faster (but still sufficiently random) RNG
+  "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
+]
+
 [dependencies]
 actix-web = "4"
 image = "0.24.7"
@@ -16,7 +24,6 @@ sanitize-filename = "0.3.0"
 actix-multipart = "0.6.1"
 futures-util = "0.3.29"
 futures = "0.3.29"
-uuid = "0.8"
 aws-sdk-s3 = "1.5.0"
 aws-types = "1.0.3"
 aws-config = "1.0.3"

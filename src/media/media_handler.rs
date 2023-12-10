@@ -1,20 +1,35 @@
+use bytes::Bytes;
 use std::clone::Clone;
 use std::fmt::Debug;
-use std::path::PathBuf;
 
+use crate::media::Path;
 use crate::metadata::Metadata;
 
-pub type Body = Vec<u8>;
-
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 pub struct MediaHandler {
-    path: PathBuf,
-    body: Body,
+    path: Path,
+    body: Bytes,
     metadata: Metadata,
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct MediaLogicGroupHandler {
-    media: MediaHandler,
-    derived_medias: Vec<MediaHandler>,
+impl MediaHandler {
+    pub fn new(path: Path, body: Bytes, metadata: Metadata) -> Self {
+        Self {
+            path,
+            body,
+            metadata,
+        }
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    pub fn body(&self) -> &Bytes {
+        &self.body
+    }
+
+    pub fn metadata(&self) -> &Metadata {
+        &self.metadata
+    }
 }

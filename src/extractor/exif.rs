@@ -11,10 +11,10 @@ impl ExifExtractor {
 
     pub fn extract(
         &self,
-        picture_data: BytesMut,
+        data: BytesMut,
     ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
         let reader = exif::Reader::new();
-        let exif = reader.read_from_container(&mut Cursor::new(&picture_data))?;
+        let exif = reader.read_from_container(&mut Cursor::new(&data))?;
 
         let mut fields_map = HashMap::new();
 
