@@ -13,3 +13,16 @@ pub struct Metadata {
     pub created_at: SystemTime,
     pub updated_at: Option<SystemTime>,
 }
+
+impl Metadata {
+    pub fn new() -> Self {
+        Self {
+            content_type: None,
+            content_length: 0,
+            embedded_metadata: HashMap::new(),
+            derived_medias: Vec::new(),
+            created_at: SystemTime::now(),
+            updated_at: Some(SystemTime::now()),
+        }
+    }
+}

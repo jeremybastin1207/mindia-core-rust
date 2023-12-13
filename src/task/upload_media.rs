@@ -2,12 +2,12 @@ use bytes::BytesMut;
 use std::error::Error;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::time::SystemTime;
 
-use crate::extractor::ExifExtractor;
-use crate::media::{MediaHandler, Path};
+use crate::extractor::{ExifExtractor, Extractor};
+use crate::media::Path;
 use crate::metadata::{Metadata, MetadataStorage};
 use crate::storage::FileStorage;
+use crate::transform::{Transform, WebpConverter};
 
 pub struct UploadMedia {
     file_storage: Arc<Mutex<dyn FileStorage>>,
@@ -25,27 +25,21 @@ impl UploadMedia {
         }
     }
 
-    pub fn upload(&self, path: Path, body: BytesMut) -> Result<(), Box<dyn Error>> {
-        let exif_data = ExifExtractor::new().extract(body.clone())?;
+    pub fn upload(&self, mut path: Path, body: BytesMut) -> Result<(), Box<dyn Error>> {
+        let mut metadata = Metadata::new();
+        metadata.embedded_metadata = ExifExtractor::new().extract(body.clone().freeze())?;
 
-        let metadata = Metadata {
-            content_type: None,
-            content_length: 0,
-            embedded_metadata: exif_data,
-            derived_medias: Vec::new(),
-            created_at: SystemTime::now(),
-            updated_at: Some(SystemTime::now()),
-        };
+        WebpConverter::new().transform(&mut path, body.clone())?;
 
-        let media_handler = MediaHandler::new(path, body.clone().into(), metadata.clone());
-
-        let path_str = media_handler.path().as_str()?;
-
-        let mut file_storage = self.file_storage.lock().unwrap();
-        file_storage.upload(path_str, body.into())?;
-
-        let mut metadata_storage = self.metadata_storage.lock().unwrap();
-        metadata_storage.save(path_str, metadata)?;
+        let path_str = path.as_str()?;
+        {
+            let file_storage = self.file_storage.lock().unwrap();
+            file_storage.upload(path_str, body.into())?;
+        }
+        {
+            let mut metadata_storage = self.metadata_storage.lock().unwrap();
+            metadata_storage.save(path_str, metadata)?;
+        }
 
         Ok(())
     }

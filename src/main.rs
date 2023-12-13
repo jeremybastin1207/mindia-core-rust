@@ -18,7 +18,7 @@ mod metadata;
 mod named_transformation;
 mod storage;
 mod task;
-mod transformation;
+mod transform;
 mod types;
 
 use crate::adapter::s3::S3;

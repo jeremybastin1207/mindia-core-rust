@@ -1,6 +1,9 @@
-use bytes::BytesMut;
+use bytes::Bytes;
 use std::collections::HashMap;
+use std::error::Error;
 use std::io::Cursor;
+
+use crate::extractor::extractor_trait::Extractor;
 
 pub struct ExifExtractor {}
 
@@ -8,11 +11,12 @@ impl ExifExtractor {
     pub fn new() -> Self {
         Self {}
     }
+}
 
-    pub fn extract(
-        &self,
-        data: BytesMut,
-    ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
+impl Extractor for ExifExtractor {
+    type Output = HashMap<String, String>;
+
+    fn extract(&self, data: Bytes) -> Result<Self::Output, Box<dyn Error>> {
         let reader = exif::Reader::new();
         let exif = reader.read_from_container(&mut Cursor::new(&data))?;
 

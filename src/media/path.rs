@@ -10,9 +10,6 @@ pub struct Path {
 impl Path {
     pub fn new(path: String) -> Result<Self, &'static str> {
         let path = PathBuf::from(&path);
-        if !path.is_absolute() {
-            return Err("The path must be absolute");
-        }
         Ok(Self { path })
     }
 
@@ -35,6 +32,10 @@ impl Path {
 
     pub fn extension(&self) -> &str {
         self.path.extension().and_then(|s| s.to_str()).unwrap_or("")
+    }
+
+    pub fn set_extension(&mut self, ext: &str) {
+        self.path.set_extension(ext);
     }
 
     pub fn as_str(&self) -> Result<&str, &'static str> {

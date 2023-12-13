@@ -1,5 +1,5 @@
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct Size {
-    width: u32,
-    height: u32,
+    pub width: u32,
+    pub height: u32,
 }
