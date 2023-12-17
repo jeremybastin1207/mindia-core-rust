@@ -1,10 +1,10 @@
-use bytes::BytesMut;
 use image::io::Reader as ImageReader;
 use std::error::Error;
 use std::io::Cursor;
 
-use crate::media::Path;
 use crate::transform::Transform;
+
+use super::ContextTransform;
 
 pub struct WebpConverter {}
 
@@ -15,16 +15,16 @@ impl WebpConverter {
 }
 
 impl Transform for WebpConverter {
-    fn transform(&self, path: &mut Path, mut bytes: BytesMut) -> Result<(), Box<dyn Error>> {
-        let img = ImageReader::new(Cursor::new(&bytes))
+    fn transform(&self, mut context: ContextTransform) -> Result<ContextTransform, Box<dyn Error>> {
+        let img = ImageReader::new(Cursor::new(&context.body))
             .with_guessed_format()?
             .decode()?;
 
-        bytes.clear();
-        bytes.extend_from_slice(img.as_bytes());
+        context.body.clear();
+        context.body.extend_from_slice(img.as_bytes());
 
-        path.set_extension("webp");
+        context.path.set_extension("webp");
 
-        Ok(())
+        Ok(context)
     }
 }

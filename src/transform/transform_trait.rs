@@ -1,8 +1,7 @@
-use bytes::BytesMut;
 use std::error::Error;
 
-use crate::media::Path;
+use crate::transform::ContextTransform;
 
 pub trait Transform {
-    fn transform(&self, path: &mut Path, bytes: BytesMut) -> Result<(), Box<dyn Error>>;
+    fn transform(&self, context: ContextTransform) -> Result<ContextTransform, Box<dyn Error>>;
 }

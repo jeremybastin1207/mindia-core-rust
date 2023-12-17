@@ -24,15 +24,12 @@ pub async fn save_named_transformation(
 ) -> impl Responder {
     let mut named_transformation_storage = data.named_transformation_storage.lock().unwrap();
 
-    let named_transformation = NamedTransformation {
-        name: new_named_transformation.name.clone(),
-        transformations: new_named_transformation.transformations.clone(),
-    };
+    let named_transformation = new_named_transformation.into_inner();
 
-    match named_transformation_storage.save(named_transformation) {
+    match named_transformation_storage.save(named_transformation.clone()) {
         Ok(()) => HttpResponse::Ok().body(format!(
             "Named transformation {} saved",
-            new_named_transformation.name
+            named_transformation.name
         )),
         Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
     }

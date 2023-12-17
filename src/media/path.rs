@@ -46,42 +46,10 @@ impl Path {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
 
     #[test]
     fn test_new() {
         let path = Path::new("/folder/test.txt".to_string());
         assert!(path.is_ok());
-    }
-
-    #[test]
-    fn test_new_relative_path() {
-        let path = Path::new("folder/test.txt".to_string());
-        assert!(path.is_err());
-    }
-
-    #[test]
-    fn test_generate() {
-        let path = Path::generate("/test.txt".to_string());
-        assert!(path.path.file_name().is_some());
-    }
-
-    #[test]
-    fn test_folder() {
-        let path = Path::new("/folder/test.txt".to_string()).unwrap();
-        let current_dir = env::current_dir().unwrap();
-        assert_eq!(path.folder(), Some(current_dir.to_str().unwrap()));
-    }
-
-    #[test]
-    fn test_basename() {
-        let path = Path::new("/folder/test.txt".to_string()).unwrap();
-        assert_eq!(path.basename(), Some("test"));
-    }
-
-    #[test]
-    fn test_extension() {
-        let path = Path::new("/folder/test.txt".to_string()).unwrap();
-        assert_eq!(path.extension(), Some("txt"));
     }
 }

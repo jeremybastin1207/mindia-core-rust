@@ -1,8 +1,7 @@
-use bytes::Bytes;
 use std::error::Error;
 
-pub trait Extractor {
-    type Output;
+use crate::extractor::ContextExtractor;
 
-    fn extract(&self, data: Bytes) -> Result<Self::Output, Box<dyn Error>>;
+pub trait Extractor {
+    fn extract(&self, context: ContextExtractor) -> Result<ContextExtractor, Box<dyn Error>>;
 }

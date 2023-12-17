@@ -12,7 +12,7 @@ pub async fn upload(
     data: web::Data<AppState>,
     mut payload: Multipart,
 ) -> Result<HttpResponse, Box<dyn Error>> {
-    let mut metadata = String::new();
+    let mut transformations = String::new();
     let mut filename = String::new();
     let mut filedata = BytesMut::new();
 
@@ -28,16 +28,19 @@ pub async fn upload(
                 let data = chunk?;
                 filedata.extend_from_slice(&data);
             }
-        } else if field_name == "metadata" {
+        } else if field_name == "transformations" {
             while let Some(chunk) = field.next().await {
                 let data = chunk?;
-                metadata.push_str(std::str::from_utf8(&data)?);
+                transformations.push_str(std::str::from_utf8(&data)?);
             }
         }
     }
 
-    data.upload_media
-        .upload(Path::new("/".to_owned() + &filename)?, filedata)?;
+    data.upload_media.upload(
+        Path::new("/".to_owned() + &filename)?,
+        transformations,
+        filedata,
+    )?;
 
     Ok(HttpResponse::Ok().body("File uploaded successfully"))
 }

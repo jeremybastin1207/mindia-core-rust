@@ -10,6 +10,8 @@ use crate::types::size::Size;
 
 use crate::transform::Transform;
 
+use super::ContextTransform;
+
 #[derive(PartialEq)]
 pub enum CropStrategy {
     PadResizeCrop,
@@ -32,7 +34,7 @@ impl Scaler {
 }
 
 impl Transform for Scaler {
-    fn transform(&self, path: &mut Path, mut bytes: BytesMut) -> Result<(), Box<dyn Error>> {
+    fn transform(&self, context: ContextTransform) -> Result<ContextTransform, Box<dyn Error>> {
         /*         let img = ImageReader::new(Cursor::new(&bytes))
             .with_guessed_format()?
             .decode()?;
@@ -71,6 +73,6 @@ impl Transform for Scaler {
             _ => return Err("No valid crop strategy found".into()),
         } */
 
-        Ok(())
+        Ok(context)
     }
 }

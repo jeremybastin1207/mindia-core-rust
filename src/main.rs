@@ -7,6 +7,7 @@ use std::env;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+extern crate cfg_if;
 extern crate exif;
 
 mod adapter;
@@ -73,6 +74,7 @@ async fn main() -> std::io::Result<()> {
                 upload_media: Arc::new(task::UploadMedia::new(
                     Arc::clone(&filesystem_storage),
                     Arc::clone(&metadata_storage),
+                    Arc::clone(&named_transformation_storage),
                 )),
             }))
             .service(

@@ -2,9 +2,7 @@ use std::error::Error;
 
 const NAMED_TRANSFORMATIONS_KEY: &str = "internal:configuration:named_transformations";
 
-use crate::named_transformation::{
-    NamedTransformation, NamedTransformationMap, NamedTransformationStorage,
-};
+use super::{NamedTransformation, NamedTransformationMap, NamedTransformationStorage};
 
 pub struct RedisNamedTransformationStorage {
     conn: redis::Connection,
