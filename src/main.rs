@@ -17,6 +17,7 @@ mod extractor;
 mod media;
 mod metadata;
 mod named_transformation;
+mod pipeline;
 mod storage;
 mod task;
 mod transform;
@@ -60,8 +61,11 @@ async fn main() -> std::io::Result<()> {
     ));
 
     let _s3_storage: Arc<Mutex<dyn FileStorage>> = Arc::new(Mutex::new(S3Storage::new(s3_client)));
-    let filesystem_storage: Arc<Mutex<dyn FileStorage>> =
-        Arc::new(Mutex::new(FilesystemStorage::new()));
+    let filesystem_file_storage: Arc<Mutex<dyn FileStorage>> =
+        Arc::new(Mutex::new(FilesystemStorage::new("./mnt/main")));
+
+    let filesystem_cache_storage: Arc<Mutex<dyn FileStorage>> =
+        Arc::new(Mutex::new(FilesystemStorage::new("./mnt/cache")));
 
     let port = env::var("PORT").unwrap_or_else(|_| String::from("8080"));
     let bind_address = format!("127.0.0.1:{}", port);
@@ -72,7 +76,8 @@ async fn main() -> std::io::Result<()> {
                 apikey_storage: Arc::clone(&apikey_storage),
                 named_transformation_storage: Arc::clone(&named_transformation_storage),
                 upload_media: Arc::new(task::UploadMedia::new(
-                    Arc::clone(&filesystem_storage),
+                    Arc::clone(&filesystem_file_storage),
+                    Arc::clone(&filesystem_cache_storage),
                     Arc::clone(&metadata_storage),
                     Arc::clone(&named_transformation_storage),
                 )),

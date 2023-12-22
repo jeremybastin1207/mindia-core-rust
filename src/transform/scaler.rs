@@ -1,20 +1,16 @@
-use bytes::BytesMut;
 use image::io::Reader as ImageReader;
-use image::{DynamicImage, GenericImageView, ImageBuffer, ImageOutputFormat, Rgba};
+use image::{GenericImageView, ImageBuffer, Rgba};
 use std::error::Error;
 use std::io::Cursor;
 
-use crate::media::Path;
+use super::{ContextTransform, Transformer};
 use crate::types::position::Position;
 use crate::types::size::Size;
-
-use crate::transform::Transform;
-
-use super::ContextTransform;
 
 #[derive(PartialEq)]
 pub enum CropStrategy {
     PadResizeCrop,
+    ForcedCrop,
 }
 
 pub struct Scaler {
@@ -24,18 +20,29 @@ pub struct Scaler {
 }
 
 impl Scaler {
-    pub fn new(size: Size, crop_strategy: CropStrategy, pad_color: Rgba<u8>) -> Self {
+    pub fn new(size: Size) -> Self {
         Self {
             size,
-            crop_strategy,
-            pad_color,
+            crop_strategy: CropStrategy::ForcedCrop,
+            pad_color: Rgba([0, 0, 0, 0]),
         }
+    }
+
+    pub fn with_strategy(self, crop_strategy: CropStrategy) -> Self {
+        Self {
+            crop_strategy,
+            ..self
+        }
+    }
+
+    pub fn with_pad_color(self, pad_color: Rgba<u8>) -> Self {
+        Self { pad_color, ..self }
     }
 }
 
-impl Transform for Scaler {
-    fn transform(&self, context: ContextTransform) -> Result<ContextTransform, Box<dyn Error>> {
-        /*         let img = ImageReader::new(Cursor::new(&bytes))
+impl Transformer for Scaler {
+    fn transform(&self, mut context: ContextTransform) -> Result<ContextTransform, Box<dyn Error>> {
+        let img = ImageReader::new(Cursor::new(&context.body))
             .with_guessed_format()?
             .decode()?;
 
@@ -64,14 +71,14 @@ impl Transform for Scaler {
                     };
 
                     image::imageops::overlay(&mut dst, &img, pos.x.into(), pos.y.into());
-
-                    dst.write_to(&mut bytes, ImageOutputFormat::Webp)?;
-
-                    return Ok(());
                 }
             }
+            CropStrategy::ForcedCrop => {}
             _ => return Err("No valid crop strategy found".into()),
-        } */
+        }
+
+        context.body.clear();
+        context.body.extend_from_slice(img.as_bytes());
 
         Ok(context)
     }

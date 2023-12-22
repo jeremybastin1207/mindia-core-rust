@@ -1,8 +1,7 @@
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 
-use crate::extractor::extractor_trait::Extractor;
-use crate::extractor::ContextExtractor;
+use super::{ContextExtractor, Extractor};
 use crate::named_transformation::NamedTransformationStorage;
 use crate::transform::Transformation;
 
@@ -107,10 +106,10 @@ mod tests {
             "test_file".into(),
         );
 
-        let result = extractor.extract(context);
+        let result = extractor.extract(context).unwrap();
 
-        assert_eq!(result.unwrap().output.transformations.len(), 1);
-        assert_eq!(result.unwrap().output.transformations[0].name, "test_name");
+        assert_eq!(result.output.transformations.len(), 1);
+        assert_eq!(result.output.transformations[0].name, "test_name");
     }
 
     #[test]

@@ -14,18 +14,18 @@ pub struct ExtractorOutput {
 pub struct ContextExtractor {
     pub transformations_str: String,
     pub path: Path,
-    pub file: Bytes,
+    pub body: Bytes,
     pub output: ExtractorOutput,
 }
 
 impl ContextExtractor {
-    pub fn new(transformations_str: String, path: Path, file: Bytes) -> Self {
+    pub fn new(transformations_str: String, path: Path, body: Bytes) -> Self {
         Self {
             transformations_str,
             path,
-            file,
+            body,
             output: ExtractorOutput {
-                metadata: Metadata::new(),
+                metadata: Metadata::default(),
                 transformations: vec![],
             },
         }
