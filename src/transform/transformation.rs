@@ -16,4 +16,13 @@ impl Transformation {
             args: HashMap::new(),
         }
     }
+
+    pub fn as_str(&self) -> String {
+        let mut s = String::new();
+        s.push_str(&self.name);
+        for (k, v) in &self.args {
+            s.push_str(&format!(",{}-{}", k, v));
+        }
+        s
+    }
 }

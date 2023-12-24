@@ -9,7 +9,7 @@ use crate::metadata::MetadataStorage;
 use crate::named_transformation::NamedTransformationStorage;
 use crate::pipeline::{Pipeline, PipelineExecutor, Sinker, Source};
 use crate::storage::FileStorage;
-use crate::transform::{TransformationParser, WebpConverter};
+use crate::transform::{PathGenerator, TransformationFactory, WebpConverter};
 
 use super::UploadMediaContext;
 
@@ -38,12 +38,11 @@ impl UploadMedia {
     pub fn upload(
         &self,
         path: Path,
-        transformations: String,
+        transformations_str: String,
         body: BytesMut,
     ) -> Result<(), Box<dyn Error>> {
         let file_storage = self.file_storage.clone();
         let metadata_storage = self.metadata_storage.clone();
-        let named_transformation_storage = self.named_transformation_storage.clone();
 
         let output = PipelineExecutor::new().execute::<UploadMediaContext>(Pipeline::<
             UploadMediaContext,
@@ -51,7 +50,6 @@ impl UploadMedia {
             Source::new(Box::new(move |mut context| {
                 context.attributes.path = path.clone();
                 context.attributes.body = body.clone();
-                context.attributes.transformations_str = transformations.clone();
 
                 Ok(context)
             })),
@@ -69,21 +67,27 @@ impl UploadMedia {
                 Ok(())
             })),
             vec![
-                Box::new(TransformationsExtractor::new(named_transformation_storage)),
                 Box::new(ExifExtractor::default()),
                 Box::new(WebpConverter::default()),
+                Box::new(PathGenerator::default()),
             ],
         ))?;
 
-        for transformation in output.attributes.transformations.clone() {
+        let named_transformation_storage = self.named_transformation_storage.clone();
+        let transformations = TransformationsExtractor::new(named_transformation_storage)
+            .extract(transformations_str.as_str())?;
+
+        for transformation in transformations.clone() {
             let cache_storage = self.cache_storage.clone();
             let output = output.clone();
+            let transformations = TransformationFactory::new().build(transformation.clone())?;
 
             PipelineExecutor::new().execute::<UploadMediaContext>(
                 Pipeline::<UploadMediaContext>::new(
                     Source::new(Box::new(move |mut context| {
                         context.attributes.path = output.attributes.path.clone();
                         context.attributes.body = output.attributes.body.clone();
+                        context.attributes.transformations = vec![transformation.clone()];
 
                         Ok(context)
                     })),
@@ -95,7 +99,7 @@ impl UploadMedia {
 
                         Ok(())
                     })),
-                    vec![TransformationParser::default().parse(transformation)?],
+                    vec![transformations, Box::new(PathGenerator::default())],
                 ),
             )?;
         }

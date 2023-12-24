@@ -13,12 +13,19 @@ impl Path {
         Ok(Self { path })
     }
 
-    pub fn generate(path: String) -> Result<Self, Box<dyn Error>> {
+    pub fn derive_with_suffix(&self, suffix: &str) -> Result<Self, Box<dyn Error>> {
+        let mut path = self.path.clone();
+        let ext = path.extension().and_then(std::ffi::OsStr::to_str);
+        let new_name = format!("{}-{}.{}", self.basename(), suffix, ext.unwrap_or(""));
+        path.set_file_name(new_name);
+        Ok(Self { path })
+    }
+
+    pub fn generate(path: &str) -> Result<Self, Box<dyn Error>> {
         let mut path = PathBuf::from(path);
         let ext = path.extension().and_then(std::ffi::OsStr::to_str);
         let new_name = format!("{}.{}", Uuid::new_v4(), ext.unwrap_or(""));
         path.set_file_name(new_name);
-        let path = path.canonicalize()?;
         Ok(Self { path })
     }
 

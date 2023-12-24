@@ -1,18 +1,17 @@
 use bytes::BytesMut;
 use std::error::Error;
 
-use crate::extractor::{ExifExtractor, TransformationsExtractor};
+use crate::extractor::ExifExtractor;
 use crate::media::Path;
 use crate::metadata::Metadata;
 use crate::pipeline::{PipelineContext, PipelineStep};
-use crate::transform::{Scaler, Transformation, WebpConverter};
+use crate::transform::{PathGenerator, Scaler, Transformation, WebpConverter};
 
 #[derive(Default, Clone)]
 pub struct UploadMediaContext {
     pub path: Path,
     pub body: BytesMut,
     pub metadata: Metadata,
-    pub transformations_str: String,
     pub transformations: Vec<Transformation>,
 }
 
@@ -23,18 +22,6 @@ impl PipelineStep<UploadMediaContext> for ExifExtractor {
     ) -> Result<PipelineContext<UploadMediaContext>, Box<dyn Error>> {
         context.attributes.metadata =
             self.extract(context.attributes.metadata, context.attributes.body.clone())?;
-
-        Ok(context)
-    }
-}
-
-impl PipelineStep<UploadMediaContext> for TransformationsExtractor {
-    fn execute(
-        &self,
-        mut context: PipelineContext<UploadMediaContext>,
-    ) -> Result<PipelineContext<UploadMediaContext>, Box<dyn Error>> {
-        context.attributes.transformations =
-            self.extract(context.attributes.transformations_str.as_str())?;
 
         Ok(context)
     }
@@ -66,6 +53,22 @@ impl PipelineStep<UploadMediaContext> for Scaler {
         )?;
 
         context.attributes.body = body;
+
+        Ok(context)
+    }
+}
+
+impl PipelineStep<UploadMediaContext> for PathGenerator {
+    fn execute(
+        &self,
+        mut context: PipelineContext<UploadMediaContext>,
+    ) -> Result<PipelineContext<UploadMediaContext>, Box<dyn Error>> {
+        let path = self.transform(
+            &context.attributes.path,
+            &context.attributes.transformations,
+        )?;
+
+        context.attributes.path = path;
 
         Ok(context)
     }

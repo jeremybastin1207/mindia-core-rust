@@ -51,7 +51,7 @@ impl Scaler {
             .with_guessed_format()?
             .decode()?;
 
-        let img = img.resize_exact(
+        let img = img.resize(
             self.size.width,
             self.size.height,
             image::imageops::FilterType::Lanczos3,

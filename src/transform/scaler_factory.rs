@@ -1,7 +1,6 @@
 use std::error::Error;
 
-use crate::transform::scaler::Scaler;
-use crate::transform::transformation::Transformation;
+use super::{Scaler, Transformation};
 use crate::types::Size;
 
 pub fn create_scaler(transformation: Transformation) -> Result<Box<Scaler>, Box<dyn Error>> {
