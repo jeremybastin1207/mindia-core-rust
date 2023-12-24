@@ -5,13 +5,10 @@ use std::io::Cursor;
 
 use crate::metadata::Metadata;
 
+#[derive(Default)]
 pub struct ExifExtractor {}
 
 impl ExifExtractor {
-    pub fn new() -> Self {
-        Self {}
-    }
-
     pub fn extract(
         &self,
         mut metadata: Metadata,

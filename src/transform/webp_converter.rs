@@ -8,13 +8,10 @@ use std::io::Cursor;
 
 use crate::media::Path;
 
+#[derive(Default)]
 pub struct WebpConverter {}
 
 impl WebpConverter {
-    pub fn new() -> Self {
-        Self {}
-    }
-
     pub fn transform(
         &self,
         mut path: Path,
@@ -25,7 +22,6 @@ impl WebpConverter {
             .decode()?;
 
         let encoder: Encoder = Encoder::from_image(&img)?;
-
         let encoded_webp: WebPMemory = encoder.encode(65f32);
 
         body.clear();

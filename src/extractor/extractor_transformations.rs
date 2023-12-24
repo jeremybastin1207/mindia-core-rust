@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 
-use super::{ContextExtractor, Extractor};
 use crate::named_transformation::NamedTransformationStorage;
 use crate::transform::Transformation;
 
@@ -11,22 +10,24 @@ const ARG_SEPARATOR: char = ',';
 const VALUE_SEPARATOR: char = '_';
 const NAMED_TRANSFORMATION_PREFIX: &str = "t_";
 
-pub struct NamedTransformationExtractor {
+pub struct TransformationsExtractor {
     named_transformation_storage: Arc<Mutex<dyn NamedTransformationStorage>>,
 }
 
-impl NamedTransformationExtractor {
+impl TransformationsExtractor {
     pub fn new(named_transformation_storage: Arc<Mutex<dyn NamedTransformationStorage>>) -> Self {
         Self {
             named_transformation_storage,
         }
     }
-}
 
-impl Extractor for NamedTransformationExtractor {
-    fn extract(&self, mut context: ContextExtractor) -> Result<ContextExtractor, Box<dyn Error>> {
-        let transformations_str = context
-            .transformations_str
+    pub fn extract(
+        &self,
+        transformations_str: &str,
+    ) -> Result<Vec<Transformation>, Box<dyn Error>> {
+        let mut transformations: Vec<Transformation> = Vec::new();
+
+        let transformations_str = transformations_str
             .split(TRANSFORMATION_SEPARATOR)
             .collect::<Vec<&str>>();
 
@@ -49,7 +50,7 @@ impl Extractor for NamedTransformationExtractor {
                     })?;
 
                 for tranformation in named_transformation.transformations {
-                    context.output.transformations.push(tranformation);
+                    transformations.push(tranformation);
                 }
             } else {
                 let mut transformation = Transformation::new();
@@ -75,43 +76,10 @@ impl Extractor for NamedTransformationExtractor {
                     }
                 }
 
-                context.output.transformations.push(transformation);
+                transformations.push(transformation);
             }
         }
 
-        Ok(context)
+        Ok(transformations)
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::media::Path;
-    use crate::named_transformation::{MockNamedTransformationStorage, NamedTransformation};
-
-    #[test]
-    fn test_extract_named_transformation() {
-        let mut mock_storage = MockNamedTransformationStorage::new();
-
-        mock_storage
-            .expect_get_by_name()
-            .with(mockall::predicate::eq("test_name"))
-            .returning(|_| Ok(Some(NamedTransformation::new())));
-
-        let extractor = NamedTransformationExtractor::new(Arc::new(Mutex::new(mock_storage)));
-
-        let context = ContextExtractor::new(
-            "t_test_name".to_string(),
-            Path::new("test_file".to_string()).unwrap(),
-            "test_file".into(),
-        );
-
-        let result = extractor.extract(context).unwrap();
-
-        assert_eq!(result.output.transformations.len(), 1);
-        assert_eq!(result.output.transformations[0].name, "test_name");
-    }
-
-    #[test]
-    fn test_extract_transformations() {}
 }

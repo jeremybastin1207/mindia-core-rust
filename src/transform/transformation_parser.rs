@@ -1,30 +1,23 @@
 use std::error::Error;
 
-use super::{create_scaler, Transformation, Transformer};
+use super::{create_scaler, Transformation};
+use crate::pipeline::PipelineStep;
+use crate::task::UploadMediaContext;
 
-pub struct TransformationParser {}
+#[derive(Default)]
+pub struct TransformationParser;
 
 impl TransformationParser {
-    pub fn new() -> Self {
-        Self {}
-    }
-
     pub fn parse(
         &self,
-        transformations: Vec<Transformation>,
-    ) -> Result<Vec<Box<dyn Transformer>>, Box<dyn Error>> {
-        let mut transformers: Vec<Box<dyn Transformer>> = vec![];
-
-        for transformation in transformations {
-            match transformation.name.as_str() {
-                "scale" => {
-                    let scaler = create_scaler(transformation)?;
-                    transformers.push(scaler as Box<dyn Transformer>);
-                }
-                _ => (),
+        transformation: Transformation,
+    ) -> Result<Box<dyn PipelineStep<UploadMediaContext>>, Box<dyn Error>> {
+        match transformation.name.as_str() {
+            "scale" => {
+                let scaler = create_scaler(transformation)?;
+                Ok(scaler as Box<dyn PipelineStep<UploadMediaContext>>)
             }
+            _ => Err("Unknown transformation".into()),
         }
-
-        Ok(transformers)
     }
 }

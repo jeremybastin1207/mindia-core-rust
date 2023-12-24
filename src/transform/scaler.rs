@@ -1,9 +1,12 @@
+use bytes::BytesMut;
 use image::io::Reader as ImageReader;
+use image::EncodableLayout;
 use image::{GenericImageView, ImageBuffer, Rgba};
 use std::error::Error;
 use std::io::Cursor;
+use webp::{Encoder, WebPMemory};
 
-use super::{ContextTransform, Transformer};
+use crate::media::Path;
 use crate::types::position::Position;
 use crate::types::size::Size;
 
@@ -38,11 +41,13 @@ impl Scaler {
     pub fn with_pad_color(self, pad_color: Rgba<u8>) -> Self {
         Self { pad_color, ..self }
     }
-}
 
-impl Transformer for Scaler {
-    fn transform(&self, mut context: ContextTransform) -> Result<ContextTransform, Box<dyn Error>> {
-        let img = ImageReader::new(Cursor::new(&context.body))
+    pub fn transform(
+        &self,
+        mut path: Path,
+        mut body: BytesMut,
+    ) -> Result<BytesMut, Box<dyn Error>> {
+        let img = ImageReader::new(Cursor::new(&body))
             .with_guessed_format()?
             .decode()?;
 
@@ -77,9 +82,14 @@ impl Transformer for Scaler {
             _ => return Err("No valid crop strategy found".into()),
         }
 
-        context.body.clear();
-        context.body.extend_from_slice(img.as_bytes());
+        let encoder: Encoder = Encoder::from_image(&img)?;
+        let encoded_webp: WebPMemory = encoder.encode(65f32);
 
-        Ok(context)
+        body.clear();
+        body.extend_from_slice(&encoded_webp.as_bytes());
+
+        path.set_extension("webp");
+
+        Ok(body)
     }
 }

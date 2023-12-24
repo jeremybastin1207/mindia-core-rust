@@ -3,8 +3,6 @@ use std::clone::Clone;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-pub type TransformationMap = HashMap<String, Transformation>;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transformation {
     pub name: String,
