@@ -26,13 +26,13 @@ mod types;
 use crate::adapter::s3::S3;
 use crate::api::{
     delete_apikey, delete_named_transformation, get_apikeys, get_named_transformations,
-    get_transformation_descriptions, save_apikey, save_named_transformation, upload, AppState,
+    get_transformation_templates, save_apikey, save_named_transformation, upload, AppState,
 };
 use crate::apikey::{ApiKeyStorage, RedisApiKeyStorage};
 use crate::metadata::{MetadataStorage, RedisMetadataStorage};
 use crate::named_transformation::{NamedTransformationStorage, RedisNamedTransformationStorage};
 use crate::storage::{FileStorage, FilesystemStorage, S3Storage};
-use crate::transform::TransformationDescriptionRegistry;
+use crate::transform::TransformationTemplateRegistry;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -76,14 +76,13 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(AppState {
                 apikey_storage: Arc::clone(&apikey_storage),
                 named_transformation_storage: Arc::clone(&named_transformation_storage),
-                transformation_description_registry: Arc::new(Mutex::new(
-                    TransformationDescriptionRegistry::new(),
+                transformation_template_registry: Arc::new(Mutex::new(
+                    TransformationTemplateRegistry::new(),
                 )),
                 upload_media: Arc::new(task::UploadMedia::new(
                     Arc::clone(&filesystem_file_storage),
                     Arc::clone(&filesystem_cache_storage),
                     Arc::clone(&metadata_storage),
-                    Arc::clone(&named_transformation_storage),
                 )),
             }))
             .service(
@@ -94,7 +93,7 @@ async fn main() -> std::io::Result<()> {
                     .service(get_named_transformations)
                     .service(save_named_transformation)
                     .service(delete_named_transformation)
-                    .service(get_transformation_descriptions)
+                    .service(get_transformation_templates)
                     .service(upload),
             )
     })

@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use super::Transformation;
+use super::TransformationDescriptorChain;
 use crate::media::Path;
 
 #[derive(Default)]
@@ -10,14 +10,14 @@ impl PathGenerator {
     pub fn transform(
         &self,
         path: &Path,
-        transformations: &Vec<Transformation>,
+        transformation_descriptor_chain: TransformationDescriptorChain,
     ) -> Result<Path, Box<dyn Error>> {
         let mut path = Path::generate(path.as_str()?)?;
 
-        if !transformations.is_empty() {
-            let suffix = transformations
+        if !transformation_descriptor_chain.is_empty() {
+            let suffix = transformation_descriptor_chain
                 .iter()
-                .map(|transformation| transformation.as_str())
+                .map(|transformation_descriptor| transformation_descriptor.as_str())
                 .collect::<Vec<_>>()
                 .join(",");
 

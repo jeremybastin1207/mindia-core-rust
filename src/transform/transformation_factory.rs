@@ -1,34 +1,30 @@
 use std::error::Error;
 
-use super::{create_scaler, Transformation, TransformationDescriptionRegistry};
+use super::{create_scaler, TransformationDescriptorChain, TransformationName};
 use crate::pipeline::PipelineStep;
 use crate::task::UploadMediaContext;
 
-pub struct TransformationFactory {
-    transformation_description_registry: TransformationDescriptionRegistry,
-}
+#[derive(Default)]
+pub struct TransformationFactory;
 
 impl TransformationFactory {
-    pub fn new() -> TransformationFactory {
-        TransformationFactory {
-            transformation_description_registry: TransformationDescriptionRegistry::new(),
-        }
-    }
-
     pub fn build(
         &self,
-        transformation: Transformation,
-    ) -> Result<Box<dyn PipelineStep<UploadMediaContext>>, Box<dyn Error>> {
-        self.transformation_description_registry
-            .find_one(transformation.name.as_str())
-            .ok_or("Unknown transformation")?;
+        transformation_descriptor_chain: TransformationDescriptorChain,
+    ) -> Result<Vec<Box<dyn PipelineStep<UploadMediaContext>>>, Box<dyn Error>> {
+        let mut transformation_descriptors: Vec<Box<dyn PipelineStep<UploadMediaContext>>> = vec![];
 
-        match transformation.name.as_str() {
-            "scale" => {
-                let scaler = create_scaler(transformation.clone())?;
-                Ok(scaler as Box<dyn PipelineStep<UploadMediaContext>>)
+        for transformation_descriptor in transformation_descriptor_chain.iter() {
+            match transformation_descriptor.name() {
+                TransformationName::Scale => {
+                    let scaler = create_scaler(transformation_descriptor.clone())?;
+                    transformation_descriptors
+                        .push(scaler as Box<dyn PipelineStep<UploadMediaContext>>);
+                }
+                _ => return Err("Unknown transformation".into()),
             }
-            _ => Err("Unknown transformation".into()),
         }
+
+        Ok(transformation_descriptors)
     }
 }

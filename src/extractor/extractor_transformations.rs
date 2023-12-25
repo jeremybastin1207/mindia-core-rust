@@ -2,7 +2,9 @@ use std::error::Error;
 use std::sync::{Arc, Mutex};
 
 use crate::named_transformation::NamedTransformationStorage;
-use crate::transform::Transformation;
+use crate::transform::{
+    TransformationDescriptor, TransformationDescriptorChain, TransformationTemplateRegistry,
+};
 
 const TRANSFORMATION_SEPARATOR: char = '/';
 const TRANSFORMATION_NAME_SEPARATOR: char = ':';
@@ -12,74 +14,92 @@ const NAMED_TRANSFORMATION_PREFIX: &str = "t_";
 
 pub struct TransformationsExtractor {
     named_transformation_storage: Arc<Mutex<dyn NamedTransformationStorage>>,
+    transformation_template_registry: Arc<Mutex<TransformationTemplateRegistry>>,
 }
 
 impl TransformationsExtractor {
-    pub fn new(named_transformation_storage: Arc<Mutex<dyn NamedTransformationStorage>>) -> Self {
+    pub fn new(
+        named_transformation_storage: Arc<Mutex<dyn NamedTransformationStorage>>,
+        transformation_template_registry: Arc<Mutex<TransformationTemplateRegistry>>,
+    ) -> Self {
         Self {
             named_transformation_storage,
+            transformation_template_registry,
         }
     }
 
     pub fn extract(
         &self,
-        transformations_str: &str,
-    ) -> Result<Vec<Transformation>, Box<dyn Error>> {
-        let mut transformations: Vec<Transformation> = Vec::new();
+        transformation_chains_str: Vec<&str>,
+    ) -> Result<Vec<TransformationDescriptorChain>, Box<dyn Error>> {
+        let mut transformation_chains: Vec<TransformationDescriptorChain> = Vec::new();
 
-        let transformations_str = transformations_str
-            .split(TRANSFORMATION_SEPARATOR)
-            .collect::<Vec<&str>>();
+        for transformation_chain_str in transformation_chains_str {
+            let mut transformation_chain = TransformationDescriptorChain::default();
 
-        for transformation_str in transformations_str {
-            if transformation_str.starts_with(NAMED_TRANSFORMATION_PREFIX) {
-                let transformation_name = transformation_str
-                    .strip_prefix(NAMED_TRANSFORMATION_PREFIX)
-                    .unwrap();
+            let transformations_str = transformation_chain_str
+                .split(TRANSFORMATION_SEPARATOR)
+                .collect::<Vec<&str>>();
 
-                let named_transformation = self
-                    .named_transformation_storage
-                    .lock()
-                    .unwrap()
-                    .get_by_name(transformation_name)?
-                    .ok_or_else(|| {
-                        std::io::Error::new(
-                            std::io::ErrorKind::NotFound,
-                            "Named transformation not found",
-                        )
-                    })?;
+            for transformation_str in transformations_str {
+                if transformation_str.starts_with(NAMED_TRANSFORMATION_PREFIX) {
+                    let transformation_name = transformation_str
+                        .strip_prefix(NAMED_TRANSFORMATION_PREFIX)
+                        .unwrap();
 
-                for tranformation in named_transformation.transformations {
-                    transformations.push(tranformation);
-                }
-            } else {
-                let mut transformation = Transformation::new();
+                    let named_transformation = self
+                        .named_transformation_storage
+                        .lock()
+                        .unwrap()
+                        .get_by_name(transformation_name)?
+                        .ok_or_else(|| {
+                            std::io::Error::new(
+                                std::io::ErrorKind::NotFound,
+                                "Named transformation not found",
+                            )
+                        })?;
 
-                let transformation_parts = transformation_str
-                    .split(TRANSFORMATION_NAME_SEPARATOR)
-                    .collect::<Vec<&str>>();
-
-                transformation.name = transformation_parts[0].to_string();
-
-                if transformation_parts.len() > 1 {
-                    let args = transformation_parts[1]
-                        .split(ARG_SEPARATOR)
+                    for tranformation in named_transformation.transformations {
+                        transformation_chain.add(tranformation);
+                    }
+                } else {
+                    let transformation_parts = transformation_str
+                        .split(TRANSFORMATION_NAME_SEPARATOR)
                         .collect::<Vec<&str>>();
 
-                    for arg in args {
-                        let arg_parts = arg.split(VALUE_SEPARATOR).collect::<Vec<&str>>();
+                    let transformation_name = transformation_parts[0].to_string();
 
-                        let key = arg_parts[0].to_string();
-                        let value = arg_parts[1].to_string();
+                    let transformation_template = self
+                        .transformation_template_registry
+                        .lock()
+                        .unwrap()
+                        .find_one(transformation_name.as_str())
+                        .ok_or("Unknown transformation")?;
 
-                        transformation.args.insert(key, value);
+                    let mut transformation = TransformationDescriptor::new(transformation_template);
+
+                    if transformation_parts.len() > 1 {
+                        let args = transformation_parts[1]
+                            .split(ARG_SEPARATOR)
+                            .collect::<Vec<&str>>();
+
+                        for arg in args {
+                            let arg_parts = arg.split(VALUE_SEPARATOR).collect::<Vec<&str>>();
+
+                            let key = arg_parts[0].to_string();
+                            let value = arg_parts[1].to_string();
+
+                            transformation.add_arg(key, value);
+                        }
                     }
-                }
 
-                transformations.push(transformation);
+                    transformation_chain.add(transformation);
+                }
             }
+
+            transformation_chains.push(transformation_chain);
         }
 
-        Ok(transformations)
+        Ok(transformation_chains)
     }
 }

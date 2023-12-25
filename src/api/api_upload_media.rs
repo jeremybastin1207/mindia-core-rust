@@ -2,9 +2,11 @@ use actix_multipart::Multipart;
 use actix_web::{post, web, HttpResponse};
 use bytes::BytesMut;
 use futures::StreamExt;
+use serde_json::Value;
 use std::error::Error;
 
 use crate::api::app_state::AppState;
+use crate::extractor::TransformationsExtractor;
 use crate::media::Path;
 
 #[post("/upload")]
@@ -12,7 +14,10 @@ pub async fn upload(
     data: web::Data<AppState>,
     mut payload: Multipart,
 ) -> Result<HttpResponse, Box<dyn Error>> {
-    let mut transformations = String::new();
+    let named_transformation_storage = data.named_transformation_storage.clone();
+    let transformation_template_registry = data.transformation_template_registry.clone();
+
+    let mut transformations_str = String::new();
     let mut filename = String::new();
     let mut filedata = BytesMut::new();
 
@@ -31,14 +36,30 @@ pub async fn upload(
         } else if field_name == "transformations" {
             while let Some(chunk) = field.next().await {
                 let data = chunk?;
-                transformations.push_str(std::str::from_utf8(&data)?);
+                transformations_str.push_str(std::str::from_utf8(&data)?);
             }
         }
     }
 
+    let transformations_json: Value = serde_json::from_str(&transformations_str)?;
+
+    let transformation_chains = if let Some(array) = transformations_json.as_array() {
+        let str_array: Vec<&str> = array
+            .iter()
+            .map(|v| v.as_str().unwrap_or_default())
+            .collect();
+        TransformationsExtractor::new(
+            named_transformation_storage,
+            transformation_template_registry,
+        )
+        .extract(str_array)?
+    } else {
+        return Err("Invalid transformations JSON".into());
+    };
+
     data.upload_media.upload(
         Path::new("/".to_owned() + &filename)?,
-        transformations,
+        transformation_chains,
         filedata,
     )?;
 

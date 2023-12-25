@@ -5,14 +5,14 @@ use crate::extractor::ExifExtractor;
 use crate::media::Path;
 use crate::metadata::Metadata;
 use crate::pipeline::{PipelineContext, PipelineStep};
-use crate::transform::{PathGenerator, Scaler, Transformation, WebpConverter};
+use crate::transform::{PathGenerator, Scaler, TransformationDescriptorChain, WebpConverter};
 
 #[derive(Default, Clone)]
 pub struct UploadMediaContext {
     pub path: Path,
     pub body: BytesMut,
     pub metadata: Metadata,
-    pub transformations: Vec<Transformation>,
+    pub transformations: TransformationDescriptorChain,
 }
 
 impl PipelineStep<UploadMediaContext> for ExifExtractor {
@@ -65,7 +65,7 @@ impl PipelineStep<UploadMediaContext> for PathGenerator {
     ) -> Result<PipelineContext<UploadMediaContext>, Box<dyn Error>> {
         let path = self.transform(
             &context.attributes.path,
-            &context.attributes.transformations,
+            context.attributes.transformations.clone(),
         )?;
 
         context.attributes.path = path;

@@ -1,24 +1,28 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::TransformationDescription;
+use super::TransformationTemplate;
 
-enum TransformationName {
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum TransformationName {
     Scale,
+    Unset,
 }
 
 impl TransformationName {
-    fn as_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match *self {
             TransformationName::Scale => "scale",
+            TransformationName::Unset => "",
         }
     }
 }
 
-pub struct TransformationDescriptionRegistry {
-    transformation_strings: HashMap<String, TransformationDescription>,
+pub struct TransformationTemplateRegistry {
+    transformation_strings: HashMap<String, TransformationTemplate>,
 }
 
-impl TransformationDescriptionRegistry {
+impl TransformationTemplateRegistry {
     pub fn new() -> Self {
         let mut reg = Self {
             transformation_strings: HashMap::new(),
@@ -30,8 +34,8 @@ impl TransformationDescriptionRegistry {
     pub fn populate_registry(&mut self) {
         self.transformation_strings.insert(
             TransformationName::Scale.as_str().to_string(),
-            TransformationDescription::default()
-                .with_name(TransformationName::Scale.as_str().to_string().to_string())
+            TransformationTemplate::new()
+                .with_name(TransformationName::Scale)
                 .with_description("Scale the image to the given width and height".to_string())
                 .with_arg(
                     "w".to_string(),
@@ -44,15 +48,15 @@ impl TransformationDescriptionRegistry {
         );
     }
 
-    pub fn get_all(&self) -> Vec<TransformationDescription> {
+    pub fn get_all(&self) -> Vec<TransformationTemplate> {
         return self
             .transformation_strings
             .values()
             .cloned()
-            .collect::<Vec<TransformationDescription>>();
+            .collect::<Vec<TransformationTemplate>>();
     }
 
-    pub fn find_one(&self, transformation_string: &str) -> Option<TransformationDescription> {
+    pub fn find_one(&self, transformation_string: &str) -> Option<TransformationTemplate> {
         return self
             .transformation_strings
             .get(transformation_string)

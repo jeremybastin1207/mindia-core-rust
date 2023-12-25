@@ -1,18 +1,20 @@
 use std::error::Error;
 
-use super::{Scaler, Transformation};
+use super::{Scaler, TransformationDescriptor};
 use crate::types::Size;
 
-pub fn create_scaler(transformation: Transformation) -> Result<Box<Scaler>, Box<dyn Error>> {
-    let height = transformation
-        .args
+pub fn create_scaler(
+    transformation_descriptor: TransformationDescriptor,
+) -> Result<Box<Scaler>, Box<dyn Error>> {
+    let height = transformation_descriptor
+        .arg_values
         .get("h")
         .ok_or("Key 'h' not found")?
         .parse::<u32>()
         .map_err(|_| "Failed to parse 'h' value to u32")?;
 
-    let width = transformation
-        .args
+    let width = transformation_descriptor
+        .arg_values
         .get("w")
         .ok_or("Key 'w' not found")?
         .parse::<u32>()
