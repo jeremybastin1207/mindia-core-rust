@@ -9,11 +9,9 @@ pub async fn read_media(
     data: web::Data<AppState>,
     path: web::Path<String>,
 ) -> Result<HttpResponse, Box<dyn Error>> {
-    let result = data
-        .read_media
-        .read(Path::new("/".to_owned() + &path.into_inner())?);
+    let path = Path::new("/".to_owned() + &path.into_inner())?;
 
-    match result {
+    match data.read_media.read(path) {
         Ok(Some(metadata)) => Ok(HttpResponse::Ok().json(metadata)),
         Ok(None) => Ok(HttpResponse::NotFound().finish()),
         Err(e) => Err(e),

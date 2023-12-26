@@ -54,6 +54,17 @@ impl ApiKeyStorage for RedisApiKeyStorage {
             .map_err(|e| e.into())
     }
 
+    fn get_by_key(&mut self, key: &str) -> Result<Option<ApiKey>, Box<dyn Error>> {
+        let apikeys = self.get_all()?;
+
+        let result = apikeys
+            .into_iter()
+            .find(|(_, apikey)| apikey.key == key)
+            .map(|(_, apikey)| apikey);
+
+        Ok(result)
+    }
+
     fn save(&mut self, apikey: ApiKey) -> Result<(), Box<dyn Error>> {
         let apikey_json = serde_json::to_string(&apikey)?;
 

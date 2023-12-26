@@ -13,6 +13,7 @@ extern crate exif;
 mod adapter;
 mod api;
 mod apikey;
+mod config;
 mod extractor;
 mod media;
 mod metadata;
@@ -30,6 +31,7 @@ use crate::api::{
     save_named_transformation, upload, AppState,
 };
 use crate::apikey::{ApiKeyStorage, RedisApiKeyStorage};
+use crate::config::Config;
 use crate::metadata::{MetadataStorage, RedisMetadataStorage};
 use crate::named_transformation::{NamedTransformationStorage, RedisNamedTransformationStorage};
 use crate::storage::{FileStorage, FilesystemStorage, S3Storage};
@@ -42,6 +44,8 @@ async fn main() -> std::io::Result<()> {
     //env_logger::init();
 
     dotenv().expect("Failed to read .env file");
+
+    let master_key = env::var("MASTER_KEY").expect("MASTER_KEY must be set");
 
     let redis_client = Client::open("redis://127.0.0.1:6379").expect("Error creating Redis client");
 
@@ -74,6 +78,12 @@ async fn main() -> std::io::Result<()> {
 
     let server = HttpServer::new(move || {
         App::new()
+            .wrap(actix_web::middleware::Logger::default())
+            .wrap(actix_cors::Cors::default())
+            .wrap(api::middleware_apikey::ApiKeyChecker::new(
+                Arc::clone(&apikey_storage),
+                master_key.clone(),
+            ))
             .app_data(web::Data::new(AppState {
                 apikey_storage: Arc::clone(&apikey_storage),
                 named_transformation_storage: Arc::clone(&named_transformation_storage),
@@ -91,6 +101,7 @@ async fn main() -> std::io::Result<()> {
                     Arc::clone(&filesystem_cache_storage),
                     Arc::clone(&metadata_storage),
                 )),
+                config: Arc::new(Config::new(master_key.clone())),
             }))
             .service(
                 web::scope("/api/v0")
