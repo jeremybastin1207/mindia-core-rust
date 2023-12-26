@@ -19,4 +19,9 @@ impl FileStorage for S3Storage {
         println!("Uploading to S3");
         Ok(())
     }
+
+    fn download(&self, path: &str) -> Result<Bytes, Box<dyn Error>> {
+        println!("Downloading from S3");
+        Ok(Bytes::new())
+    }
 }

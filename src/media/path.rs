@@ -1,3 +1,5 @@
+use serde::de::{Deserialize, Deserializer};
+use serde::ser::{Serialize, Serializer};
 use std::error::Error;
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -47,6 +49,33 @@ impl Path {
 
     pub fn as_str(&self) -> Result<&str, &'static str> {
         self.path.to_str().ok_or("Invalid path")
+    }
+}
+
+impl Serialize for Path {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let s = self.path.to_str().ok_or(serde::ser::Error::custom(
+            "Could not convert path to string",
+        ))?;
+        serializer.serialize_str(s)
+    }
+}
+
+impl<'de> Deserialize<'de> for Path {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // Deserialize the string
+        let s = String::deserialize(deserializer)?;
+
+        // Convert the string to a PathBuf
+        let path = PathBuf::from(&s);
+
+        Ok(Self { path })
     }
 }
 

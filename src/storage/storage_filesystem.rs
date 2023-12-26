@@ -18,9 +18,8 @@ impl FilesystemStorage {
 }
 
 impl FileStorage for FilesystemStorage {
-    fn upload(&self, mut path: &str, data: Bytes) -> Result<(), Box<dyn Error>> {
-        path = path.strip_prefix("/").unwrap_or(path);
-
+    fn upload(&self, path: &str, data: Bytes) -> Result<(), Box<dyn Error>> {
+        let path = path.strip_prefix("/").unwrap_or(path);
         let full_path = Path::new(&self.mount_dir).join(path);
 
         if let Some(parent) = full_path.parent() {
@@ -30,5 +29,14 @@ impl FileStorage for FilesystemStorage {
         fs::write(&full_path, data)?;
 
         Ok(())
+    }
+
+    fn download(&self, path: &str) -> Result<Bytes, Box<dyn Error>> {
+        let path = path.strip_prefix("/").unwrap_or(path);
+        let full_path = Path::new(&self.mount_dir).join(path);
+
+        let data = fs::read(&full_path)?;
+
+        Ok(Bytes::from(data))
     }
 }

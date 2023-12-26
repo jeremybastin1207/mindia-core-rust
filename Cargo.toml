@@ -35,3 +35,4 @@ cfg-if = "1.0.0"
 mime = "0.3.17"
 mime_guess = "2.0.4"
 webp = "0.2"
+chrono = { version = "0.4", features = ["serde"] }

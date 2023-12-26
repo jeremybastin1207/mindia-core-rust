@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 
 use crate::extractor::ExifExtractor;
+use crate::media::MediaGroupHandle;
 use crate::media::Path;
 use crate::metadata::MetadataStorage;
 use crate::pipeline::{Pipeline, PipelineExecutor, Sinker, Source};
@@ -45,20 +46,20 @@ impl UploadMedia {
             UploadMediaContext,
         >::new(
             Source::new(Box::new(move |mut context| {
-                context.attributes.path = path.clone();
-                context.attributes.body = body.clone();
+                context.attributes.media_handle.metadata.path = path.clone();
+                context.attributes.media_handle.body = body.clone();
 
                 Ok(context)
             })),
             Sinker::new(Box::new(move |context| {
                 file_storage.lock().unwrap().upload(
-                    context.attributes.path.as_str()?,
-                    context.attributes.body.clone().into(),
+                    context.attributes.media_handle.metadata.path.as_str()?,
+                    context.attributes.media_handle.body.clone().into(),
                 )?;
 
                 metadata_storage.lock().unwrap().save(
-                    context.attributes.path.as_str()?,
-                    context.attributes.metadata.clone(),
+                    context.attributes.media_handle.metadata.path.as_str()?,
+                    context.attributes.media_handle.metadata.clone(),
                 )?;
 
                 Ok(())
@@ -70,19 +71,28 @@ impl UploadMedia {
             ],
         ))?;
 
-        for transformation_chain in transformation_chains {
-            let cache_storage = self.cache_storage.clone();
-            let output = output.clone();
+        if !transformation_chains.is_empty() {
+            let metadata_storage = self.metadata_storage.clone();
 
-            let mut transformation_steps =
-                TransformationFactory::default().build(transformation_chain.clone())?;
-            transformation_steps.push(Box::new(PathGenerator::default()));
+            let mut media_group_handle =
+                MediaGroupHandle::new(output.attributes.media_handle.clone(), vec![]);
 
-            PipelineExecutor::new().execute::<UploadMediaContext>(
-                Pipeline::<UploadMediaContext>::new(
+            for transformation_chain in transformation_chains {
+                let cache_storage = self.cache_storage.clone();
+                let output = output.clone();
+
+                let mut transformation_steps =
+                    TransformationFactory::default().build(transformation_chain.clone())?;
+                transformation_steps.push(Box::new(PathGenerator::default()));
+
+                let output = PipelineExecutor::new().execute::<UploadMediaContext>(Pipeline::<
+                    UploadMediaContext,
+                >::new(
                     Source::new(Box::new(move |mut context| {
-                        context.attributes.path = output.attributes.path.clone();
-                        context.attributes.body = output.attributes.body.clone();
+                        context.attributes.media_handle.metadata.path =
+                            output.attributes.media_handle.metadata.path.clone();
+                        context.attributes.media_handle.body =
+                            output.attributes.media_handle.body.clone();
                         context
                             .attributes
                             .transformations
@@ -92,14 +102,21 @@ impl UploadMedia {
                     })),
                     Sinker::new(Box::new(move |context| {
                         cache_storage.lock().unwrap().upload(
-                            context.attributes.path.as_str()?,
-                            context.attributes.body.clone().into(),
+                            context.attributes.media_handle.metadata.path.as_str()?,
+                            context.attributes.media_handle.body.clone().into(),
                         )?;
 
                         Ok(())
                     })),
                     transformation_steps,
-                ),
+                ))?;
+
+                media_group_handle.add_derived_media(output.attributes.media_handle);
+            }
+
+            metadata_storage.lock().unwrap().save(
+                media_group_handle.media.metadata.path.as_str()?,
+                media_group_handle.media.metadata.clone(),
             )?;
         }
 

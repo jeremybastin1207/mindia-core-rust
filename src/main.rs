@@ -25,8 +25,9 @@ mod types;
 
 use crate::adapter::s3::S3;
 use crate::api::{
-    delete_apikey, delete_named_transformation, get_apikeys, get_named_transformations,
-    get_transformation_templates, save_apikey, save_named_transformation, upload, AppState,
+    delete_apikey, delete_named_transformation, download_media, get_apikeys,
+    get_named_transformations, get_transformation_templates, read_media, save_apikey,
+    save_named_transformation, upload, AppState,
 };
 use crate::apikey::{ApiKeyStorage, RedisApiKeyStorage};
 use crate::metadata::{MetadataStorage, RedisMetadataStorage};
@@ -84,6 +85,12 @@ async fn main() -> std::io::Result<()> {
                     Arc::clone(&filesystem_cache_storage),
                     Arc::clone(&metadata_storage),
                 )),
+                read_media: Arc::new(task::ReadMedia::new(Arc::clone(&metadata_storage))),
+                download_media: Arc::new(task::DownloadMedia::new(
+                    Arc::clone(&filesystem_file_storage),
+                    Arc::clone(&filesystem_cache_storage),
+                    Arc::clone(&metadata_storage),
+                )),
             }))
             .service(
                 web::scope("/api/v0")
@@ -94,7 +101,9 @@ async fn main() -> std::io::Result<()> {
                     .service(save_named_transformation)
                     .service(delete_named_transformation)
                     .service(get_transformation_templates)
-                    .service(upload),
+                    .service(upload)
+                    .service(read_media)
+                    .service(download_media),
             )
     })
     .bind(&bind_address)?;

@@ -16,10 +16,11 @@ impl RedisMetadataStorage {
 }
 
 impl MetadataStorage for RedisMetadataStorage {
-    /*     fn get_by_path(&self, path: &str) -> Result<Option<Metadata>, Box<dyn Error>> {
-        let result = redis::cmd("JSON.GET")
-            .arg(String::from(path))
-            .query(&mut self.conn);
+    fn get_by_path(&mut self, path: &str) -> Result<Option<Metadata>, Box<dyn Error>> {
+        let key = format!("{}{}", METADATA_PREFIX_KEY, path);
+
+        let result: Result<String, _> = redis::cmd("JSON.GET").arg(key).query(&mut self.conn);
+
         match result {
             Ok(data) => {
                 let metadata: Metadata = serde_json::from_str(&data)?;
@@ -27,7 +28,7 @@ impl MetadataStorage for RedisMetadataStorage {
             }
             Err(_) => Ok(None),
         }
-    } */
+    }
 
     fn save(&mut self, path: &str, metadata: Metadata) -> Result<(), Box<dyn Error>> {
         let metadata_str = serde_json::to_string(&metadata)?;
