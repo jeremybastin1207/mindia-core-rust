@@ -57,11 +57,11 @@ pub async fn upload(
         return Err("Invalid transformations JSON".into());
     };
 
-    data.upload_media.upload(
+    let metadata = data.upload_media.upload(
         Path::new("/".to_owned() + &filename)?,
         transformation_chains,
         filedata,
     )?;
 
-    Ok(HttpResponse::Ok().body("File uploaded successfully"))
+    Ok(HttpResponse::Ok().body(serde_json::to_string(&metadata)?))
 }

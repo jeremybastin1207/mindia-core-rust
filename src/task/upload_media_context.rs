@@ -3,7 +3,9 @@ use std::error::Error;
 use crate::extractor::ExifExtractor;
 use crate::media::MediaHandle;
 use crate::pipeline::{PipelineContext, PipelineStep};
-use crate::transform::{PathGenerator, Scaler, TransformationDescriptorChain, WebpConverter};
+use crate::transform::{
+    PathGenerator, Scaler, TransformationDescriptorChain, Watermarker, WebpConverter,
+};
 
 #[derive(Default, Clone)]
 pub struct UploadMediaContext {
@@ -51,6 +53,19 @@ impl PipelineStep<UploadMediaContext> for Scaler {
             context.attributes.media_handle.metadata.path.clone(),
             context.attributes.media_handle.body.clone(),
         )?;
+
+        context.attributes.media_handle.body = body;
+
+        Ok(context)
+    }
+}
+
+impl PipelineStep<UploadMediaContext> for Watermarker {
+    fn execute(
+        &self,
+        mut context: PipelineContext<UploadMediaContext>,
+    ) -> Result<PipelineContext<UploadMediaContext>, Box<dyn Error>> {
+        let body = self.transform(context.attributes.media_handle.body.clone())?;
 
         context.attributes.media_handle.body = body;
 

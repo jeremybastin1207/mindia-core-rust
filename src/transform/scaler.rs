@@ -23,31 +23,16 @@ pub struct Scaler {
 }
 
 impl Scaler {
-    pub fn new(size: Size) -> Self {
+    pub fn new(size: Size, crop_strategy: CropStrategy, pad_color: Rgba<u8>) -> Self {
         Self {
             size,
-            crop_strategy: CropStrategy::ForcedCrop,
-            pad_color: Rgba([0, 0, 0, 0]),
-        }
-    }
-
-    pub fn with_strategy(self, crop_strategy: CropStrategy) -> Self {
-        Self {
             crop_strategy,
-            ..self
+            pad_color,
         }
     }
 
-    pub fn with_pad_color(self, pad_color: Rgba<u8>) -> Self {
-        Self { pad_color, ..self }
-    }
-
-    pub fn transform(
-        &self,
-        mut path: Path,
-        mut body: BytesMut,
-    ) -> Result<BytesMut, Box<dyn Error>> {
-        let img = ImageReader::new(Cursor::new(&body))
+    pub fn transform(&self, mut path: Path, mut dst: BytesMut) -> Result<BytesMut, Box<dyn Error>> {
+        let img = ImageReader::new(Cursor::new(&dst))
             .with_guessed_format()?
             .decode()?;
 
@@ -85,11 +70,11 @@ impl Scaler {
         let encoder: Encoder = Encoder::from_image(&img)?;
         let encoded_webp: WebPMemory = encoder.encode(65f32);
 
-        body.clear();
-        body.extend_from_slice(&encoded_webp.as_bytes());
+        dst.clear();
+        dst.extend_from_slice(&encoded_webp.as_bytes());
 
         path.set_extension("webp");
 
-        Ok(body)
+        Ok(dst)
     }
 }

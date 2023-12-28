@@ -3,20 +3,20 @@ use std::error::Error;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use super::UploadMediaContext;
+use super::{PipelineStepsFactory, UploadMediaContext};
 use crate::extractor::ExifExtractor;
 use crate::media::{MediaGroupHandle, Path};
+use crate::metadata::Metadata;
 use crate::metadata::MetadataStorage;
 use crate::pipeline::{Pipeline, PipelineExecutor, Sinker, Source};
 use crate::storage::FileStorage;
-use crate::transform::{
-    PathGenerator, TransformationDescriptorChain, TransformationFactory, WebpConverter,
-};
+use crate::transform::{PathGenerator, TransformationDescriptorChain, WebpConverter};
 
 pub struct UploadMedia {
     file_storage: Arc<Mutex<dyn FileStorage>>,
     cache_storage: Arc<Mutex<dyn FileStorage>>,
     metadata_storage: Arc<Mutex<dyn MetadataStorage>>,
+    pipline_steps_factory: Arc<Mutex<PipelineStepsFactory>>,
 }
 
 impl UploadMedia {
@@ -26,9 +26,10 @@ impl UploadMedia {
         metadata_storage: Arc<Mutex<dyn MetadataStorage>>,
     ) -> UploadMedia {
         UploadMedia {
-            file_storage,
+            file_storage: file_storage.clone(),
             cache_storage,
             metadata_storage,
+            pipline_steps_factory: Arc::new(Mutex::new(PipelineStepsFactory::new(file_storage))),
         }
     }
 
@@ -37,7 +38,7 @@ impl UploadMedia {
         path: Path,
         transformation_chains: Vec<TransformationDescriptorChain>,
         body: BytesMut,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<Metadata, Box<dyn Error>> {
         let file_storage = self.file_storage.clone();
         let metadata_storage = self.metadata_storage.clone();
 
@@ -80,8 +81,11 @@ impl UploadMedia {
                 let cache_storage = self.cache_storage.clone();
                 let output = output.clone();
 
-                let mut transformation_steps =
-                    TransformationFactory::default().build(transformation_chain.clone())?;
+                let mut transformation_steps = self
+                    .pipline_steps_factory
+                    .lock()
+                    .unwrap()
+                    .create(transformation_chain.clone())?;
                 transformation_steps.push(Box::new(PathGenerator::default()));
 
                 let output = PipelineExecutor::new().execute::<UploadMediaContext>(Pipeline::<
@@ -119,6 +123,6 @@ impl UploadMedia {
             )?;
         }
 
-        Ok(())
+        Ok(output.attributes.media_handle.metadata)
     }
 }

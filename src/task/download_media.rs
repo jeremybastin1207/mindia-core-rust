@@ -4,19 +4,18 @@ use std::error::Error;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use super::{PipelineStepsFactory, UploadMediaContext};
 use crate::media::Path;
 use crate::metadata::MetadataStorage;
 use crate::pipeline::{Pipeline, PipelineExecutor, Sinker, Source};
 use crate::storage::FileStorage;
-use crate::transform::TransformationDescriptorChain;
-use crate::transform::{PathGenerator, TransformationFactory};
-
-use super::UploadMediaContext;
+use crate::transform::{PathGenerator, TransformationDescriptorChain};
 
 pub struct DownloadMedia {
     file_storage: Arc<Mutex<dyn FileStorage>>,
     cache_storage: Arc<Mutex<dyn FileStorage>>,
     metadata_storage: Arc<Mutex<dyn MetadataStorage>>,
+    pipline_steps_factory: Arc<Mutex<PipelineStepsFactory>>,
 }
 
 impl DownloadMedia {
@@ -26,9 +25,10 @@ impl DownloadMedia {
         metadata_storage: Arc<Mutex<dyn MetadataStorage>>,
     ) -> DownloadMedia {
         DownloadMedia {
-            file_storage,
+            file_storage: file_storage.clone(),
             cache_storage,
             metadata_storage,
+            pipline_steps_factory: Arc::new(Mutex::new(PipelineStepsFactory::new(file_storage))),
         }
     }
     pub fn download(
@@ -55,8 +55,11 @@ impl DownloadMedia {
         match file_bytes {
             Some(file_bytes) => Ok(Some(file_bytes)),
             None => {
-                let mut transformation_steps =
-                    TransformationFactory::default().build(transformation_chain.clone())?;
+                let mut transformation_steps = self
+                    .pipline_steps_factory
+                    .lock()
+                    .unwrap()
+                    .create(transformation_chain.clone())?;
                 transformation_steps.push(Box::new(PathGenerator::default()));
 
                 let metadata_result = self
