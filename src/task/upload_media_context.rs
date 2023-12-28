@@ -64,7 +64,7 @@ impl PipelineStep<UploadMediaContext> for PathGenerator {
         mut context: PipelineContext<UploadMediaContext>,
     ) -> Result<PipelineContext<UploadMediaContext>, Box<dyn Error>> {
         let path = self.transform(
-            &context.attributes.media_handle.metadata.path,
+            context.attributes.media_handle.metadata.path,
             context.attributes.transformations.clone(),
         )?;
 

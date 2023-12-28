@@ -28,9 +28,15 @@ impl TransformationDescriptor {
     pub fn as_str(&self) -> String {
         let mut s = String::new();
         s.push_str(&self.transformation_template.name.as_str());
-        for (k, v) in &self.arg_values {
-            s.push_str(&format!(",{}-{}", k, v));
+
+        for key in self.transformation_template.args.keys() {
+            let value = self.arg_values.get(key);
+            match value {
+                Some(v) => s.push_str(&format!(",{}-{}", key, v)),
+                None => s.push_str(&format!(",{}-{}", key, "unset")),
+            }
         }
+
         s
     }
 }

@@ -3,16 +3,15 @@ use std::error::Error;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use super::UploadMediaContext;
 use crate::extractor::ExifExtractor;
-use crate::media::MediaGroupHandle;
-use crate::media::Path;
+use crate::media::{MediaGroupHandle, Path};
 use crate::metadata::MetadataStorage;
 use crate::pipeline::{Pipeline, PipelineExecutor, Sinker, Source};
 use crate::storage::FileStorage;
-use crate::transform::TransformationDescriptorChain;
-use crate::transform::{PathGenerator, TransformationFactory, WebpConverter};
-
-use super::UploadMediaContext;
+use crate::transform::{
+    PathGenerator, TransformationDescriptorChain, TransformationFactory, WebpConverter,
+};
 
 pub struct UploadMedia {
     file_storage: Arc<Mutex<dyn FileStorage>>,

@@ -28,6 +28,15 @@ impl TransformationsExtractor {
         }
     }
 
+    pub fn extract_one(
+        &self,
+        transformation_chain_str: &str,
+    ) -> Result<TransformationDescriptorChain, Box<dyn Error>> {
+        let transformation_chains = self.extract(vec![transformation_chain_str])?;
+
+        Ok(transformation_chains[0].clone())
+    }
+
     pub fn extract(
         &self,
         transformation_chains_str: Vec<&str>,

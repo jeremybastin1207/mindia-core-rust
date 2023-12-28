@@ -31,12 +31,14 @@ impl FileStorage for FilesystemStorage {
         Ok(())
     }
 
-    fn download(&self, path: &str) -> Result<Bytes, Box<dyn Error>> {
+    fn download(&self, path: &str) -> Result<Option<Bytes>, Box<dyn Error>> {
         let path = path.strip_prefix("/").unwrap_or(path);
         let full_path = Path::new(&self.mount_dir).join(path);
 
-        let data = fs::read(&full_path)?;
-
-        Ok(Bytes::from(data))
+        match fs::read(&full_path) {
+            Ok(data) => Ok(Some(Bytes::from(data))),
+            Err(ref e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 }

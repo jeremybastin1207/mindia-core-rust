@@ -30,3 +30,9 @@ impl Default for Metadata {
         }
     }
 }
+
+impl Metadata {
+    pub fn append_derived_media(&mut self, metadata: Metadata) {
+        self.derived_medias.push(metadata);
+    }
+}

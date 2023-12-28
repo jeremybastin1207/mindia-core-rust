@@ -12,7 +12,7 @@ pub enum TransformationName {
 impl TransformationName {
     pub fn as_str(&self) -> &'static str {
         match *self {
-            TransformationName::Scale => "scale",
+            TransformationName::Scale => "c_scale",
             TransformationName::Unset => "",
         }
     }
