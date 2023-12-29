@@ -41,4 +41,13 @@ impl FileStorage for FilesystemStorage {
             Err(e) => Err(e.into()),
         }
     }
+
+    fn delete(&self, path: &str) -> Result<(), Box<dyn Error>> {
+        let path = path.strip_prefix("/").unwrap_or(path);
+        let full_path = Path::new(&self.mount_dir).join(path);
+
+        fs::remove_file(&full_path)?;
+
+        Ok(())
+    }
 }

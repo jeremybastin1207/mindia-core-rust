@@ -35,4 +35,9 @@ impl Metadata {
     pub fn append_derived_media(&mut self, metadata: Metadata) {
         self.derived_medias.push(metadata);
     }
+
+    pub fn remove_derived_media(&mut self, path: &Path) {
+        self.derived_medias
+            .retain(|metadata| metadata.path != *path);
+    }
 }

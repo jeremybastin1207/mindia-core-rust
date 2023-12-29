@@ -1,4 +1,5 @@
 pub mod api_apikey;
+pub mod api_clear_cache;
 pub mod api_download_media;
 pub mod api_named_transformation;
 pub mod api_read_media;
@@ -9,6 +10,7 @@ pub mod middleware_apikey;
 pub mod utils;
 
 pub use api_apikey::{delete_apikey, get_apikeys, save_apikey};
+pub use api_clear_cache::clear_cache;
 pub use api_download_media::download_media;
 pub use api_named_transformation::{
     delete_named_transformation, get_named_transformations, save_named_transformation,

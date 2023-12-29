@@ -24,4 +24,9 @@ impl FileStorage for S3Storage {
         println!("Downloading from S3");
         Ok(None)
     }
+
+    fn delete(&self, path: &str) -> Result<(), Box<dyn Error>> {
+        println!("Deleting from S3");
+        Ok(())
+    }
 }

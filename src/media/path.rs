@@ -4,7 +4,7 @@ use std::error::Error;
 use std::path::PathBuf;
 use uuid::Uuid;
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct Path {
     path: PathBuf,
 }

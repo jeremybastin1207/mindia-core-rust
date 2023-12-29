@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use crate::apikey::ApiKeyStorage;
 use crate::config::Config;
 use crate::named_transformation::NamedTransformationStorage;
-use crate::task::{download_media, read_media, upload_media};
+use crate::task::{clear_cache, download_media, read_media, upload_media};
 use crate::transform::TransformationTemplateRegistry;
 
 pub struct AppState {
@@ -14,5 +14,6 @@ pub struct AppState {
     pub upload_media: Arc<upload_media::UploadMedia>,
     pub read_media: Arc<read_media::ReadMedia>,
     pub download_media: Arc<download_media::DownloadMedia>,
+    pub clear_cache: Arc<clear_cache::ClearCache>,
     pub config: Arc<Config>,
 }

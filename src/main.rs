@@ -26,7 +26,7 @@ mod types;
 
 use crate::adapter::s3::S3;
 use crate::api::{
-    delete_apikey, delete_named_transformation, download_media, get_apikeys,
+    clear_cache, delete_apikey, delete_named_transformation, download_media, get_apikeys,
     get_named_transformations, get_transformation_templates, read_media, save_apikey,
     save_named_transformation, upload, AppState,
 };
@@ -101,6 +101,11 @@ async fn main() -> std::io::Result<()> {
                     Arc::clone(&filesystem_cache_storage),
                     Arc::clone(&metadata_storage),
                 )),
+                clear_cache: Arc::new(task::ClearCache::new(
+                    Arc::clone(&filesystem_file_storage),
+                    Arc::clone(&filesystem_cache_storage),
+                    Arc::clone(&metadata_storage),
+                )),
                 config: Arc::new(Config::new(master_key.clone())),
             }))
             .service(
@@ -114,7 +119,8 @@ async fn main() -> std::io::Result<()> {
                     .service(get_transformation_templates)
                     .service(upload)
                     .service(read_media)
-                    .service(download_media),
+                    .service(download_media)
+                    .service(clear_cache),
             )
     })
     .bind(&bind_address)?;
