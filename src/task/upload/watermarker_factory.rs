@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use std::error::Error;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use super::PipelineStepFactory;
 use crate::media::Path;
@@ -11,11 +11,11 @@ use crate::task::UploadMediaContext;
 use crate::transform::{Anchor, OverlaySinkerFunc, TransformationDescriptor, Watermarker};
 
 pub struct WatermarkerFactory {
-    pub file_storage: Arc<Mutex<dyn FileStorage>>,
+    pub file_storage: Arc<dyn FileStorage>,
 }
 
 impl WatermarkerFactory {
-    pub fn new(file_storage: Arc<Mutex<dyn FileStorage>>) -> Self {
+    pub fn new(file_storage: Arc<dyn FileStorage>) -> Self {
         Self { file_storage }
     }
 }
@@ -53,7 +53,7 @@ impl PipelineStepFactory for WatermarkerFactory {
 
         let overlay_sinker: OverlaySinkerFunc =
             Box::new(move || -> Result<Bytes, Box<dyn Error>> {
-                let bytes = file_storage.lock().unwrap().download(path.as_str()?)?;
+                let bytes = file_storage.download(path.as_str()?)?;
                 match bytes {
                     Some(bytes) => Ok(bytes),
                     None => Err("Failed to download file".into()),

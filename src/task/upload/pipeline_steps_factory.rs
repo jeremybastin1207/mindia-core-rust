@@ -9,20 +9,20 @@ use crate::task::UploadMediaContext;
 use crate::transform::{TransformationDescriptorChain, TransformationName};
 
 pub struct PipelineStepsFactory {
-    factories: HashMap<TransformationName, Box<dyn PipelineStepFactory>>,
+    factories: Arc<Mutex<HashMap<TransformationName, Box<dyn PipelineStepFactory>>>>,
 }
 
 impl PipelineStepsFactory {
-    pub fn new(file_storage: Arc<Mutex<dyn FileStorage>>) -> Self {
-        let mut factories: HashMap<TransformationName, Box<dyn PipelineStepFactory>> =
-            HashMap::new();
+    pub fn new(file_storage: Arc<dyn FileStorage>) -> Self {
+        let factories: Arc<Mutex<HashMap<TransformationName, Box<dyn PipelineStepFactory>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
 
-        factories.insert(
+        factories.lock().unwrap().insert(
             TransformationName::Scale,
             Box::new(ScalerFactory::default()),
         );
 
-        factories.insert(
+        factories.lock().unwrap().insert(
             TransformationName::Watermark,
             Box::new(WatermarkerFactory::new(file_storage)),
         );
@@ -35,7 +35,10 @@ impl PipelineStepsFactory {
         transformation_name: TransformationName,
         factory: Box<dyn PipelineStepFactory>,
     ) {
-        self.factories.insert(transformation_name, factory);
+        self.factories
+            .lock()
+            .unwrap()
+            .insert(transformation_name, factory);
     }
 
     pub fn create(
@@ -47,6 +50,8 @@ impl PipelineStepsFactory {
         for transformation_descriptor in transformation_descriptor_chain.iter() {
             let pipeline_step = self
                 .factories
+                .lock()
+                .unwrap()
                 .get(transformation_descriptor.name())
                 .ok_or("Factory not found")?
                 .create(transformation_descriptor.clone())?;

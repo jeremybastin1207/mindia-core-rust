@@ -6,7 +6,7 @@ use actix_web::{
 };
 use futures_util::future::LocalBoxFuture;
 use std::future::{ready, Ready};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::apikey::ApiKeyStorage;
 
@@ -15,15 +15,15 @@ use crate::apikey::ApiKeyStorage;
 //    next service in chain as parameter.
 // 2. Middleware's call method gets called with normal request.
 pub struct ApiKeyChecker {
-    api_key_storage: Arc<Mutex<dyn ApiKeyStorage>>,
+    api_key_storage: Arc<dyn ApiKeyStorage>,
     master_key: String,
 }
 
 impl ApiKeyChecker {
-    pub fn new(api_key_storage: Arc<Mutex<dyn ApiKeyStorage>>, master_key: String) -> Self {
+    pub fn new(api_key_storage: Arc<dyn ApiKeyStorage>, master_key: String) -> Self {
         Self {
-            api_key_storage: api_key_storage,
-            master_key: master_key,
+            api_key_storage,
+            master_key,
         }
     }
 }
@@ -54,7 +54,7 @@ where
 
 pub struct ApiKeyCheckerMiddleware<S> {
     service: S,
-    api_key_storage: Arc<Mutex<dyn ApiKeyStorage>>,
+    api_key_storage: Arc<dyn ApiKeyStorage>,
     master_key: String,
 }
 
@@ -81,10 +81,7 @@ where
         match api_key_from_req {
             Some(api_key_from_req) => {
                 if api_key_from_req != self.master_key {
-                    let api_key = {
-                        let mut api_key_storage = self.api_key_storage.lock().unwrap();
-                        api_key_storage.get_by_key(&api_key_from_req)
-                    };
+                    let api_key = { self.api_key_storage.get_by_key(&api_key_from_req) };
 
                     match api_key {
                         Ok(Some(_)) => (),

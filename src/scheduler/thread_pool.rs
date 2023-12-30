@@ -3,10 +3,10 @@ use std::{
     thread,
 };
 
-struct Job;
+pub type Job = Box<FnOnce() + Send + 'static>;
 
-struct ThreadPool {
-    workers: Vec<thread::JoinHandle<()>>,
+pub struct ThreadPool {
+    workers: Vec<Worker>,
     sender: Option<mpsc::Sender<Job>>,
 }
 
@@ -54,7 +54,7 @@ impl Drop for ThreadPool {
     }
 }
 
-struct Worker {
+pub struct Worker {
     id: usize,
     thread: Option<thread::JoinHandle<()>>,
 }
@@ -83,3 +83,16 @@ impl Worker {
         }
     }
 }
+
+/* fn main() {
+    let pool = ThreadPool::new(num_cpus::get());
+
+    for i in 0..8 {
+        pool.execute(move || {
+            println!("Job {} started", i);
+            thread::sleep(std::time::Duration::from_secs(1));
+            println!("Job {} finished", i);
+        });
+    }
+}
+ */

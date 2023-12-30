@@ -1,7 +1,6 @@
 use bytes::BytesMut;
 use std::error::Error;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use super::{PipelineStepsFactory, UploadMediaContext};
 use crate::extractor::ExifExtractor;
@@ -13,23 +12,23 @@ use crate::storage::FileStorage;
 use crate::transform::{PathGenerator, TransformationDescriptorChain, WebpConverter};
 
 pub struct UploadMedia {
-    file_storage: Arc<Mutex<dyn FileStorage>>,
-    cache_storage: Arc<Mutex<dyn FileStorage>>,
-    metadata_storage: Arc<Mutex<dyn MetadataStorage>>,
-    pipline_steps_factory: Arc<Mutex<PipelineStepsFactory>>,
+    file_storage: Arc<dyn FileStorage>,
+    cache_storage: Arc<dyn FileStorage>,
+    metadata_storage: Arc<dyn MetadataStorage>,
+    pipline_steps_factory: PipelineStepsFactory,
 }
 
 impl UploadMedia {
     pub fn new(
-        file_storage: Arc<Mutex<dyn FileStorage>>,
-        cache_storage: Arc<Mutex<dyn FileStorage>>,
-        metadata_storage: Arc<Mutex<dyn MetadataStorage>>,
+        file_storage: Arc<dyn FileStorage>,
+        cache_storage: Arc<dyn FileStorage>,
+        metadata_storage: Arc<dyn MetadataStorage>,
     ) -> UploadMedia {
         UploadMedia {
             file_storage: file_storage.clone(),
             cache_storage,
             metadata_storage,
-            pipline_steps_factory: Arc::new(Mutex::new(PipelineStepsFactory::new(file_storage))),
+            pipline_steps_factory: PipelineStepsFactory::new(file_storage),
         }
     }
 
@@ -52,12 +51,12 @@ impl UploadMedia {
                 Ok(context)
             })),
             Sinker::new(Box::new(move |context| {
-                file_storage.lock().unwrap().upload(
+                file_storage.upload(
                     context.attributes.media_handle.metadata.path.as_str()?,
                     context.attributes.media_handle.body.clone().into(),
                 )?;
 
-                metadata_storage.lock().unwrap().save(
+                metadata_storage.save(
                     context.attributes.media_handle.metadata.path.as_str()?,
                     context.attributes.media_handle.metadata.clone(),
                 )?;
@@ -83,8 +82,6 @@ impl UploadMedia {
 
                 let mut transformation_steps = self
                     .pipline_steps_factory
-                    .lock()
-                    .unwrap()
                     .create(transformation_chain.clone())?;
                 transformation_steps.push(Box::new(PathGenerator::default()));
 
@@ -104,7 +101,7 @@ impl UploadMedia {
                         Ok(context)
                     })),
                     Sinker::new(Box::new(move |context| {
-                        cache_storage.lock().unwrap().upload(
+                        cache_storage.upload(
                             context.attributes.media_handle.metadata.path.as_str()?,
                             context.attributes.media_handle.body.clone().into(),
                         )?;
@@ -117,7 +114,7 @@ impl UploadMedia {
                 media_group_handle.add_derived_media(output.attributes.media_handle);
             }
 
-            metadata_storage.lock().unwrap().save(
+            metadata_storage.save(
                 media_group_handle.media.metadata.path.as_str()?,
                 media_group_handle.media.metadata.clone(),
             )?;

@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 use super::TransformationTemplate;
 
@@ -21,20 +22,22 @@ impl TransformationName {
 }
 
 pub struct TransformationTemplateRegistry {
-    transformation_strings: HashMap<String, TransformationTemplate>,
+    transformation_strings: Arc<RwLock<HashMap<String, TransformationTemplate>>>,
 }
 
 impl TransformationTemplateRegistry {
     pub fn new() -> Self {
         let mut reg = Self {
-            transformation_strings: HashMap::new(),
+            transformation_strings: Arc::new(RwLock::new(HashMap::new())),
         };
         reg.populate_registry();
         reg
     }
 
     pub fn populate_registry(&mut self) {
-        self.transformation_strings.insert(
+        let mut transformation_strings = self.transformation_strings.write().unwrap();
+
+        transformation_strings.insert(
             TransformationName::Scale.as_str().to_string(),
             TransformationTemplate::new()
                 .with_name(TransformationName::Scale)
@@ -48,7 +51,7 @@ impl TransformationTemplateRegistry {
                     "The height to scale the image to".to_string(),
                 ),
         );
-        self.transformation_strings.insert(
+        transformation_strings.insert(
             TransformationName::Watermark.as_str().to_string(),
             TransformationTemplate::new()
                 .with_name(TransformationName::Watermark)
@@ -76,6 +79,8 @@ impl TransformationTemplateRegistry {
     pub fn get_all(&self) -> Vec<TransformationTemplate> {
         return self
             .transformation_strings
+            .read()
+            .unwrap()
             .values()
             .cloned()
             .collect::<Vec<TransformationTemplate>>();
@@ -84,6 +89,8 @@ impl TransformationTemplateRegistry {
     pub fn find_one(&self, transformation_string: &str) -> Option<TransformationTemplate> {
         return self
             .transformation_strings
+            .read()
+            .unwrap()
             .get(transformation_string)
             .cloned();
     }

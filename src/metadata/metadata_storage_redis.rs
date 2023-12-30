@@ -1,25 +1,30 @@
+use redis::Connection;
 use std::error::Error;
+use std::sync::{Arc, Mutex};
 
 use crate::metadata::{Metadata, MetadataStorage};
 
 const METADATA_PREFIX_KEY: &str = "metadata:";
 
 pub struct RedisMetadataStorage {
-    conn: redis::Connection,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl RedisMetadataStorage {
-    pub fn new(client: redis::Client) -> Result<Self, Box<dyn Error>> {
-        let conn = client.get_connection()?;
-        Ok(Self { conn })
+    pub fn new(conn: Connection) -> Self {
+        Self {
+            conn: Arc::new(Mutex::new(conn)),
+        }
     }
 }
 
 impl MetadataStorage for RedisMetadataStorage {
-    fn get_by_path(&mut self, path: &str) -> Result<Option<Metadata>, Box<dyn Error>> {
+    fn get_by_path(&self, path: &str) -> Result<Option<Metadata>, Box<dyn Error>> {
+        let mut conn = self.conn.lock().unwrap();
+
         let key = format!("{}{}", METADATA_PREFIX_KEY, path);
 
-        let result: Result<String, _> = redis::cmd("JSON.GET").arg(key).query(&mut self.conn);
+        let result: Result<String, _> = redis::cmd("JSON.GET").arg(key).query(&mut conn);
 
         match result {
             Ok(data) => {
@@ -30,7 +35,8 @@ impl MetadataStorage for RedisMetadataStorage {
         }
     }
 
-    fn get_all(&mut self) -> Result<Vec<Metadata>, Box<dyn Error>> {
+    fn get_all(&self) -> Result<Vec<Metadata>, Box<dyn Error>> {
+        let mut conn = self.conn.lock().unwrap();
         let mut cursor = 0;
         let mut metadatas = Vec::new();
 
@@ -39,12 +45,12 @@ impl MetadataStorage for RedisMetadataStorage {
                 .arg(cursor)
                 .arg("MATCH")
                 .arg(format!("{}*", METADATA_PREFIX_KEY))
-                .query(&mut self.conn)?;
+                .query(&mut conn)?;
 
             cursor = scan.0;
 
             for key in scan.1 {
-                let metadata_str: String = redis::cmd("JSON.GET").arg(key).query(&mut self.conn)?;
+                let metadata_str: String = redis::cmd("JSON.GET").arg(key).query(&mut conn)?;
 
                 let metadata: Metadata = serde_json::from_str(&metadata_str)?;
 
@@ -59,7 +65,9 @@ impl MetadataStorage for RedisMetadataStorage {
         Ok(metadatas)
     }
 
-    fn save(&mut self, path: &str, metadata: Metadata) -> Result<(), Box<dyn Error>> {
+    fn save(&self, path: &str, metadata: Metadata) -> Result<(), Box<dyn Error>> {
+        let mut conn = self.conn.lock().unwrap();
+
         let metadata_str = serde_json::to_string(&metadata)?;
 
         let key = format!("{}{}", METADATA_PREFIX_KEY, path);
@@ -68,15 +76,17 @@ impl MetadataStorage for RedisMetadataStorage {
             .arg(key)
             .arg(".")
             .arg(metadata_str)
-            .query(&mut self.conn)?;
+            .query(&mut conn)?;
 
         Ok(())
     }
 
-    fn delete(&mut self, path: &str) -> Result<(), Box<dyn Error>> {
+    fn delete(&self, path: &str) -> Result<(), Box<dyn Error>> {
+        let mut conn = self.conn.lock().unwrap();
+
         let key = format!("{}{}", METADATA_PREFIX_KEY, path);
 
-        redis::cmd("DEL").arg(key).query(&mut self.conn)?;
+        redis::cmd("DEL").arg(key).query(&mut conn)?;
 
         Ok(())
     }

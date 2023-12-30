@@ -2,7 +2,6 @@ use bytes::Bytes;
 use bytes::BytesMut;
 use std::error::Error;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 use super::{PipelineStepsFactory, UploadMediaContext};
 use crate::media::Path;
@@ -12,23 +11,23 @@ use crate::storage::FileStorage;
 use crate::transform::{PathGenerator, TransformationDescriptorChain};
 
 pub struct DownloadMedia {
-    file_storage: Arc<Mutex<dyn FileStorage>>,
-    cache_storage: Arc<Mutex<dyn FileStorage>>,
-    metadata_storage: Arc<Mutex<dyn MetadataStorage>>,
-    pipline_steps_factory: Arc<Mutex<PipelineStepsFactory>>,
+    file_storage: Arc<dyn FileStorage>,
+    cache_storage: Arc<dyn FileStorage>,
+    metadata_storage: Arc<dyn MetadataStorage>,
+    pipline_steps_factory: PipelineStepsFactory,
 }
 
 impl DownloadMedia {
     pub fn new(
-        file_storage: Arc<Mutex<dyn FileStorage>>,
-        cache_storage: Arc<Mutex<dyn FileStorage>>,
-        metadata_storage: Arc<Mutex<dyn MetadataStorage>>,
+        file_storage: Arc<dyn FileStorage>,
+        cache_storage: Arc<dyn FileStorage>,
+        metadata_storage: Arc<dyn MetadataStorage>,
     ) -> DownloadMedia {
         DownloadMedia {
             file_storage: file_storage.clone(),
             cache_storage,
             metadata_storage,
-            pipline_steps_factory: Arc::new(Mutex::new(PipelineStepsFactory::new(file_storage))),
+            pipline_steps_factory: PipelineStepsFactory::new(file_storage),
         }
     }
     pub fn download(
@@ -37,7 +36,7 @@ impl DownloadMedia {
         transformation_chain: Option<TransformationDescriptorChain>,
     ) -> Result<Option<Bytes>, Box<dyn Error>> {
         if transformation_chain.is_none() {
-            let bytes = self.file_storage.lock().unwrap().download(path.as_str()?)?;
+            let bytes = self.file_storage.download(path.as_str()?)?;
             return Ok(bytes);
         }
 
@@ -46,27 +45,17 @@ impl DownloadMedia {
         let derived_path =
             PathGenerator::default().transform(path.clone(), transformation_chain.clone())?;
 
-        let file_bytes = self
-            .cache_storage
-            .lock()
-            .unwrap()
-            .download(derived_path.as_str()?)?;
+        let file_bytes = self.cache_storage.download(derived_path.as_str()?)?;
 
         match file_bytes {
             Some(file_bytes) => Ok(Some(file_bytes)),
             None => {
                 let mut transformation_steps = self
                     .pipline_steps_factory
-                    .lock()
-                    .unwrap()
                     .create(transformation_chain.clone())?;
                 transformation_steps.push(Box::new(PathGenerator::default()));
 
-                let metadata_result = self
-                    .metadata_storage
-                    .lock()
-                    .unwrap()
-                    .get_by_path(path.as_str()?)?;
+                let metadata_result = self.metadata_storage.get_by_path(path.as_str()?)?;
 
                 let mut metadata = match metadata_result {
                     Some(metadata) => metadata,
@@ -85,7 +74,7 @@ impl DownloadMedia {
                     UploadMediaContext,
                 >::new(
                     Source::new(Box::new(move |mut context| {
-                        let file_bytes = file_storage.lock().unwrap().download(path.as_str()?)?;
+                        let file_bytes = file_storage.download(path.as_str()?)?;
 
                         if let Some(file_bytes) = file_bytes {
                             context.attributes.media_handle.body = BytesMut::from(&file_bytes[..]);
@@ -105,7 +94,7 @@ impl DownloadMedia {
                         Ok(context)
                     })),
                     Sinker::new(Box::new(move |context| {
-                        cache_storage.lock().unwrap().upload(
+                        cache_storage.upload(
                             context.attributes.media_handle.metadata.path.as_str()?,
                             context.attributes.media_handle.body.clone().into(),
                         )?;
@@ -117,7 +106,7 @@ impl DownloadMedia {
 
                 metadata.append_derived_media(output.attributes.media_handle.metadata.clone());
 
-                self.metadata_storage.lock().unwrap().save(
+                self.metadata_storage.save(
                     output.attributes.media_handle.metadata.path.as_str()?,
                     output.attributes.media_handle.metadata.clone(),
                 )?;

@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use crate::named_transformation::NamedTransformationStorage;
 use crate::transform::{
@@ -13,14 +13,14 @@ const VALUE_SEPARATOR: char = '_';
 const NAMED_TRANSFORMATION_PREFIX: &str = "t_";
 
 pub struct TransformationsExtractor {
-    named_transformation_storage: Arc<Mutex<dyn NamedTransformationStorage>>,
-    transformation_template_registry: Arc<Mutex<TransformationTemplateRegistry>>,
+    named_transformation_storage: Arc<dyn NamedTransformationStorage>,
+    transformation_template_registry: Arc<TransformationTemplateRegistry>,
 }
 
 impl TransformationsExtractor {
     pub fn new(
-        named_transformation_storage: Arc<Mutex<dyn NamedTransformationStorage>>,
-        transformation_template_registry: Arc<Mutex<TransformationTemplateRegistry>>,
+        named_transformation_storage: Arc<dyn NamedTransformationStorage>,
+        transformation_template_registry: Arc<TransformationTemplateRegistry>,
     ) -> Self {
         Self {
             named_transformation_storage,
@@ -58,8 +58,6 @@ impl TransformationsExtractor {
 
                     let named_transformation = self
                         .named_transformation_storage
-                        .lock()
-                        .unwrap()
                         .get_by_name(transformation_name)?
                         .ok_or_else(|| {
                             std::io::Error::new(
@@ -80,8 +78,6 @@ impl TransformationsExtractor {
 
                     let transformation_template = self
                         .transformation_template_registry
-                        .lock()
-                        .unwrap()
                         .find_one(transformation_name.as_str())
                         .ok_or("Unknown transformation")?;
 

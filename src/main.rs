@@ -5,7 +5,6 @@ use dotenv::dotenv;
 use redis::Client;
 use std::env;
 use std::sync::Arc;
-use std::sync::Mutex;
 
 extern crate cfg_if;
 extern crate exif;
@@ -51,27 +50,26 @@ async fn main() -> std::io::Result<()> {
 
     let s3_client = S3::new().await.unwrap();
 
-    let apikey_storage: Arc<Mutex<dyn ApiKeyStorage>> = Arc::new(Mutex::new(
-        RedisApiKeyStorage::new(redis_client.clone()).expect("Error creating RedisApiKeyStorage"),
+    let apikey_storage: Arc<dyn ApiKeyStorage> = Arc::new(
+        RedisApiKeyStorage::new(redis_client.get_connection().unwrap())
+            .expect("Error creating RedisApiKeyStorage"),
+    );
+
+    let named_transformation_storage: Arc<dyn NamedTransformationStorage> = Arc::new(
+        RedisNamedTransformationStorage::new(redis_client.get_connection().unwrap())
+            .expect("Error creating RedisNamedTransformationStorage"),
+    );
+
+    let metadata_storage: Arc<dyn MetadataStorage> = Arc::new(RedisMetadataStorage::new(
+        redis_client.get_connection().unwrap(),
     ));
 
-    let named_transformation_storage: Arc<Mutex<dyn NamedTransformationStorage>> =
-        Arc::new(Mutex::new(
-            RedisNamedTransformationStorage::new(redis_client.clone())
-                .expect("Error creating RedisNamedTransformationStorage"),
-        ));
+    let _s3_storage: Arc<dyn FileStorage> = Arc::new(S3Storage::new(s3_client));
+    let filesystem_file_storage: Arc<dyn FileStorage> =
+        Arc::new(FilesystemStorage::new("./mnt/main"));
 
-    let metadata_storage: Arc<Mutex<dyn MetadataStorage>> = Arc::new(Mutex::new(
-        RedisMetadataStorage::new(redis_client.clone())
-            .expect("Error creating RedisMetadataStorage"),
-    ));
-
-    let _s3_storage: Arc<Mutex<dyn FileStorage>> = Arc::new(Mutex::new(S3Storage::new(s3_client)));
-    let filesystem_file_storage: Arc<Mutex<dyn FileStorage>> =
-        Arc::new(Mutex::new(FilesystemStorage::new("./mnt/main")));
-
-    let filesystem_cache_storage: Arc<Mutex<dyn FileStorage>> =
-        Arc::new(Mutex::new(FilesystemStorage::new("./mnt/cache")));
+    let filesystem_cache_storage: Arc<dyn FileStorage> =
+        Arc::new(FilesystemStorage::new("./mnt/cache"));
 
     let port = env::var("PORT").unwrap_or_else(|_| String::from("8080"));
     let bind_address = format!("127.0.0.1:{}", port);
@@ -87,9 +85,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(AppState {
                 apikey_storage: Arc::clone(&apikey_storage),
                 named_transformation_storage: Arc::clone(&named_transformation_storage),
-                transformation_template_registry: Arc::new(Mutex::new(
-                    TransformationTemplateRegistry::new(),
-                )),
+                transformation_template_registry: Arc::new(TransformationTemplateRegistry::new()),
                 upload_media: Arc::new(task::UploadMedia::new(
                     Arc::clone(&filesystem_file_storage),
                     Arc::clone(&filesystem_cache_storage),
