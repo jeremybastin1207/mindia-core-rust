@@ -3,7 +3,7 @@ use std::{
     thread,
 };
 
-pub type Job = Box<FnOnce() + Send + 'static>;
+pub type Job = Box<dyn FnOnce() + Send + 'static>;
 
 pub struct ThreadPool {
     workers: Vec<Worker>,
@@ -83,16 +83,3 @@ impl Worker {
         }
     }
 }
-
-/* fn main() {
-    let pool = ThreadPool::new(num_cpus::get());
-
-    for i in 0..8 {
-        pool.execute(move || {
-            println!("Job {} started", i);
-            thread::sleep(std::time::Duration::from_secs(1));
-            println!("Job {} finished", i);
-        });
-    }
-}
- */

@@ -20,16 +20,16 @@ impl RedisApiKeyStorage {
     }
 
     fn init(&mut self) -> Result<(), Box<dyn Error>> {
-        let mut conn = self.conn.lock().unwrap();
-
-        let exists: bool = redis::cmd("EXISTS").arg(API_KEYS_KEY).query(&mut conn)?;
+        let exists: bool = redis::cmd("EXISTS")
+            .arg(API_KEYS_KEY)
+            .query(&mut self.conn.lock().unwrap())?;
 
         if !exists {
             redis::cmd("JSON.SET")
                 .arg(API_KEYS_KEY)
                 .arg(".")
                 .arg("{}")
-                .query(&mut conn)?;
+                .query(&mut self.conn.lock().unwrap())?;
         }
 
         Ok(())
@@ -38,20 +38,18 @@ impl RedisApiKeyStorage {
 
 impl ApiKeyStorage for RedisApiKeyStorage {
     fn get_all(&self) -> Result<ApiKeyMap, Box<dyn Error>> {
-        let mut conn = self.conn.lock().unwrap();
-
-        let result: String = redis::cmd("JSON.GET").arg(API_KEYS_KEY).query(&mut conn)?;
+        let result: String = redis::cmd("JSON.GET")
+            .arg(API_KEYS_KEY)
+            .query(&mut self.conn.lock().unwrap())?;
 
         serde_json::from_str(&result).map_err(|e| e.into())
     }
 
     fn get_by_name(&self, name: &str) -> Result<Option<ApiKey>, Box<dyn Error>> {
-        let mut conn = self.conn.lock().unwrap();
-
         let result: Option<String> = redis::cmd("JSON.GET")
             .arg(API_KEYS_KEY)
             .arg(name)
-            .query(&mut *conn)?;
+            .query(&mut self.conn.lock().unwrap())?;
 
         result
             .map(|json| serde_json::from_str(&json))
@@ -71,26 +69,22 @@ impl ApiKeyStorage for RedisApiKeyStorage {
     }
 
     fn save(&self, apikey: ApiKey) -> Result<(), Box<dyn Error>> {
-        let mut conn = self.conn.lock().unwrap();
-
         let apikey_json = serde_json::to_string(&apikey)?;
 
         redis::cmd("JSON.SET")
             .arg(API_KEYS_KEY)
             .arg(apikey.name)
             .arg(apikey_json)
-            .query(&mut conn)?;
+            .query(&mut self.conn.lock().unwrap())?;
 
         Ok(())
     }
 
     fn delete(&self, apikey_name: &str) -> Result<(), Box<dyn Error>> {
-        let mut conn = self.conn.lock().unwrap();
-
         redis::cmd("JSON.DEL")
             .arg(API_KEYS_KEY)
             .arg(apikey_name)
-            .query(&mut conn)?;
+            .query(&mut self.conn.lock().unwrap())?;
 
         Ok(())
     }

@@ -18,6 +18,7 @@ mod media;
 mod metadata;
 mod named_transformation;
 mod pipeline;
+mod scheduler;
 mod storage;
 mod task;
 mod transform;
@@ -33,6 +34,7 @@ use crate::apikey::{ApiKeyStorage, RedisApiKeyStorage};
 use crate::config::Config;
 use crate::metadata::{MetadataStorage, RedisMetadataStorage};
 use crate::named_transformation::{NamedTransformationStorage, RedisNamedTransformationStorage};
+use crate::scheduler::{RedisTaskStorage, TaskScheduler, TaskStorage};
 use crate::storage::{FileStorage, FilesystemStorage, S3Storage};
 use crate::transform::TransformationTemplateRegistry;
 
@@ -64,12 +66,34 @@ async fn main() -> std::io::Result<()> {
         redis_client.get_connection().unwrap(),
     ));
 
+    let task_storage: Arc<dyn TaskStorage> = Arc::new(RedisTaskStorage::new(
+        redis_client.get_connection().unwrap(),
+    ));
+
     let _s3_storage: Arc<dyn FileStorage> = Arc::new(S3Storage::new(s3_client));
     let filesystem_file_storage: Arc<dyn FileStorage> =
         Arc::new(FilesystemStorage::new("./mnt/main"));
 
     let filesystem_cache_storage: Arc<dyn FileStorage> =
         Arc::new(FilesystemStorage::new("./mnt/cache"));
+
+    let clear_cache_task = Arc::new(task::ClearCache::new(
+        Arc::clone(&filesystem_file_storage),
+        Arc::clone(&filesystem_cache_storage),
+        Arc::clone(&metadata_storage),
+    ));
+
+    let mut task_scheduler = TaskScheduler::new(Arc::clone(&task_storage));
+    task_scheduler.register_task_executor(scheduler::TaskKind::ClearCache, clear_cache_task);
+
+    let task_scheduler = Arc::new(task_scheduler);
+
+    let task_scheduler_thread = {
+        let task_scheduler = task_scheduler.clone();
+        std::thread::spawn(move || {
+            task_scheduler.run().unwrap();
+        })
+    };
 
     let port = env::var("PORT").unwrap_or_else(|_| String::from("8080"));
     let bind_address = format!("127.0.0.1:{}", port);
@@ -97,11 +121,7 @@ async fn main() -> std::io::Result<()> {
                     Arc::clone(&filesystem_cache_storage),
                     Arc::clone(&metadata_storage),
                 )),
-                clear_cache: Arc::new(task::ClearCache::new(
-                    Arc::clone(&filesystem_file_storage),
-                    Arc::clone(&filesystem_cache_storage),
-                    Arc::clone(&metadata_storage),
-                )),
+                task_scheduler: task_scheduler.clone(),
                 config: Arc::new(Config::new(master_key.clone())),
             }))
             .service(
@@ -122,6 +142,5 @@ async fn main() -> std::io::Result<()> {
     .bind(&bind_address)?;
 
     println!("Server is running at http://{}", bind_address);
-
     server.run().await
 }

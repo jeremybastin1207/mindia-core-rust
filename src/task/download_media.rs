@@ -4,6 +4,7 @@ use std::error::Error;
 use std::sync::Arc;
 
 use super::{PipelineStepsFactory, UploadMediaContext};
+use crate::media::MediaHandle;
 use crate::media::Path;
 use crate::metadata::MetadataStorage;
 use crate::pipeline::{Pipeline, PipelineExecutor, Sinker, Source};
@@ -55,9 +56,7 @@ impl DownloadMedia {
                     .create(transformation_chain.clone())?;
                 transformation_steps.push(Box::new(PathGenerator::default()));
 
-                let metadata_result = self.metadata_storage.get_by_path(path.as_str()?)?;
-
-                let mut metadata = match metadata_result {
+                let mut metadata = match self.metadata_storage.get_by_path(path.as_str()?)? {
                     Some(metadata) => metadata,
                     None => {
                         return Err(Box::new(std::io::Error::new(
@@ -106,10 +105,8 @@ impl DownloadMedia {
 
                 metadata.append_derived_media(output.attributes.media_handle.metadata.clone());
 
-                self.metadata_storage.save(
-                    output.attributes.media_handle.metadata.path.as_str()?,
-                    output.attributes.media_handle.metadata.clone(),
-                )?;
+                self.metadata_storage
+                    .save(metadata.path.as_str()?, metadata.clone())?;
 
                 Ok(Some(output.attributes.media_handle.body.freeze()))
             }
