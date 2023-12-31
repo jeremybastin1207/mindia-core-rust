@@ -46,7 +46,7 @@ impl PipelineStepFactory for WatermarkerFactory {
             .parse::<String>()
             .map_err(|_| "Failed to parse 'a' value to String")?;
 
-        let path = Path::new(path)?;
+        let path = Path::new(path.as_str())?;
         let anchor = Anchor::from_str(&anchor)?;
         let file_storage = Arc::clone(&self.file_storage);
         let path2 = path.clone();

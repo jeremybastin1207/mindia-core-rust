@@ -10,8 +10,8 @@ pub struct Path {
 }
 
 impl Path {
-    pub fn new(path: String) -> Result<Self, &'static str> {
-        let path = PathBuf::from(&path);
+    pub fn new(path: &str) -> Result<Self, &'static str> {
+        let path = PathBuf::from(path);
         Ok(Self { path })
     }
 
@@ -85,7 +85,7 @@ mod tests {
 
     #[test]
     fn test_new() {
-        let path = Path::new("/folder/test.txt".to_string());
+        let path = Path::new("/folder/test.txt");
         assert!(path.is_ok());
     }
 }

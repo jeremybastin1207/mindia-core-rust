@@ -4,7 +4,6 @@ use std::error::Error;
 use std::sync::Arc;
 
 use super::{PipelineStepsFactory, UploadMediaContext};
-use crate::media::MediaHandle;
 use crate::media::Path;
 use crate::metadata::MetadataStorage;
 use crate::pipeline::{Pipeline, PipelineExecutor, Sinker, Source};

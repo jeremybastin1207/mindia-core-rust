@@ -9,9 +9,10 @@ use crate::api::app_state::AppState;
 use crate::extractor::TransformationsExtractor;
 use crate::media::Path;
 
-#[post("/upload")]
+#[post("/upload/{path:.*}")]
 pub async fn upload(
     data: web::Data<AppState>,
+    path: web::Path<String>,
     mut payload: Multipart,
 ) -> Result<HttpResponse, Box<dyn Error>> {
     let named_transformation_storage = data.named_transformation_storage.clone();
@@ -57,11 +58,12 @@ pub async fn upload(
         return Err("Invalid transformations JSON".into());
     };
 
-    let metadata = data.upload_media.upload(
-        Path::new("/".to_owned() + &filename)?,
-        transformation_chains,
-        filedata,
-    )?;
+    let path_str = format!("/{}/{}", path, filename);
+    let path = Path::generate(&path_str)?;
+
+    let metadata = data
+        .upload_media
+        .upload(path, transformation_chains, filedata)?;
 
     Ok(HttpResponse::Ok().body(serde_json::to_string(&metadata)?))
 }

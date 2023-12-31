@@ -121,6 +121,11 @@ async fn main() -> std::io::Result<()> {
                     Arc::clone(&filesystem_cache_storage),
                     Arc::clone(&metadata_storage),
                 )),
+                delete_media: Arc::new(task::DeleteMedia::new(
+                    Arc::clone(&filesystem_file_storage),
+                    Arc::clone(&filesystem_cache_storage),
+                    Arc::clone(&metadata_storage),
+                )),
                 task_scheduler: task_scheduler.clone(),
                 config: Arc::new(Config::new(master_key.clone())),
             }))
