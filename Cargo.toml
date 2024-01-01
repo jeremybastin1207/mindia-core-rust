@@ -37,3 +37,7 @@ mime_guess = "2.0.4"
 webp = "0.2"
 chrono = { version = "0.4", features = ["serde"] }
 actix-cors = "0.6.5"
+opentelemetry = { version = "0.20", features = ["trace"] }
+opentelemetry-stdout = { version = "0.1", features = ["trace"] }
+toml = "0.5.2"
+ctrlc = "3.4.2"

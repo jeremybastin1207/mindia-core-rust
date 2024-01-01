@@ -1,0 +1,19 @@
+[server]
+port = 8080
+
+[adapter.redis]
+host = "127.0.0.1"
+port = 6379
+password = ""
+
+[storage.filesystem]
+mount_dir = "./mnt"
+
+[apikey]
+storage_kind = "redis"
+
+[named_transformation]
+storage_kind = "redis"
+
+[metadata]
+storage_kind = "redis"

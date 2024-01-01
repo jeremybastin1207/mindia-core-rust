@@ -16,5 +16,5 @@ pub struct AppState {
     pub download_media: Arc<DownloadMedia>,
     pub delete_media: Arc<DeleteMedia>,
     pub task_scheduler: Arc<TaskScheduler>,
-    pub config: Arc<Config>,
+    pub config: Config,
 }

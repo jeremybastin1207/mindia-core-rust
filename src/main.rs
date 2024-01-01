@@ -1,9 +1,5 @@
 use actix_web::{web, App, HttpServer};
-use dotenv::dotenv;
-// use env_logger;
-// use env_logger::Env;
 use redis::Client;
-use std::env;
 use std::sync::Arc;
 
 extern crate cfg_if;
@@ -24,53 +20,85 @@ mod task;
 mod transform;
 mod types;
 
-use crate::adapter::s3::S3;
 use crate::api::{
     clear_cache, delete_apikey, delete_named_transformation, download_media, get_apikeys,
     get_named_transformations, get_transformation_templates, read_media, save_apikey,
     save_named_transformation, upload, AppState,
 };
 use crate::apikey::{ApiKeyStorage, RedisApiKeyStorage};
-use crate::config::Config;
+use crate::config::{ConfigLoader, StorageKind};
 use crate::metadata::{MetadataStorage, RedisMetadataStorage};
 use crate::named_transformation::{NamedTransformationStorage, RedisNamedTransformationStorage};
 use crate::scheduler::{RedisTaskStorage, TaskScheduler, TaskStorage};
-use crate::storage::{FileStorage, FilesystemStorage, S3Storage};
+use crate::storage::{FileStorage, FilesystemStorage};
 use crate::transform::TransformationTemplateRegistry;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    //env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
-    //std::env::set_var("RUST_LOG", "debug");
-    //env_logger::init();
+    let config = ConfigLoader::load().unwrap();
 
-    dotenv().expect("Failed to read .env file");
+    let redis_client = if let Some(redis) = config.adapter.redis.clone() {
+        let redis_address = format!("redis://{}:{}", redis.host, redis.port);
 
-    let master_key = env::var("MASTER_KEY").expect("MASTER_KEY must be set");
+        Some(Client::open(redis_address.as_str()).expect("Error creating Redis client"))
+    } else {
+        None
+    };
 
-    let redis_client = Client::open("redis://127.0.0.1:6379").expect("Error creating Redis client");
+    let apikey_storage: Arc<dyn ApiKeyStorage> = match config.apikey.storage_kind {
+        StorageKind::Filesystem => panic!("Filesystem storage for apikeys is not supported yet"),
+        StorageKind::Redis => {
+            let redis_conn = redis_client
+                .as_ref()
+                .unwrap()
+                .get_connection()
+                .expect("Error connecting to Redis");
+            Arc::new(
+                RedisApiKeyStorage::new(redis_conn).expect("Error creating RedisApiKeyStorage"),
+            )
+        }
+    };
 
-    let s3_client = S3::new().await.unwrap();
+    let named_transformation_storage: Arc<dyn NamedTransformationStorage> =
+        match config.named_transformation.storage_kind {
+            StorageKind::Filesystem => {
+                panic!("Filesystem storage for named transformations is not supported yet")
+            }
+            StorageKind::Redis => {
+                let redis_conn = redis_client
+                    .as_ref()
+                    .unwrap()
+                    .get_connection()
+                    .expect("Error connecting to Redis");
+                Arc::new(
+                    RedisNamedTransformationStorage::new(redis_conn)
+                        .expect("Error creating RedisNamedTransformationStorage"),
+                )
+            }
+        };
 
-    let apikey_storage: Arc<dyn ApiKeyStorage> = Arc::new(
-        RedisApiKeyStorage::new(redis_client.get_connection().unwrap())
-            .expect("Error creating RedisApiKeyStorage"),
-    );
-
-    let named_transformation_storage: Arc<dyn NamedTransformationStorage> = Arc::new(
-        RedisNamedTransformationStorage::new(redis_client.get_connection().unwrap())
-            .expect("Error creating RedisNamedTransformationStorage"),
-    );
-
-    let metadata_storage: Arc<dyn MetadataStorage> = Arc::new(RedisMetadataStorage::new(
-        redis_client.get_connection().unwrap(),
-    ));
+    let metadata_storage: Arc<dyn MetadataStorage> = match config.metadata.storage_kind {
+        StorageKind::Filesystem => {
+            panic!("Filesystem storage for metadata is not supported yet")
+        }
+        StorageKind::Redis => {
+            let redis_conn = redis_client
+                .as_ref()
+                .unwrap()
+                .get_connection()
+                .expect("Error connecting to Redis");
+            Arc::new(RedisMetadataStorage::new(redis_conn))
+        }
+    };
 
     let task_storage: Arc<dyn TaskStorage> = Arc::new(RedisTaskStorage::new(
-        redis_client.get_connection().unwrap(),
+        redis_client
+            .as_ref()
+            .unwrap()
+            .get_connection()
+            .expect("Error connecting to Redis"),
     ));
 
-    let _s3_storage: Arc<dyn FileStorage> = Arc::new(S3Storage::new(s3_client));
     let filesystem_file_storage: Arc<dyn FileStorage> =
         Arc::new(FilesystemStorage::new("./mnt/main"));
 
@@ -78,9 +106,9 @@ async fn main() -> std::io::Result<()> {
         Arc::new(FilesystemStorage::new("./mnt/cache"));
 
     let clear_cache_task = Arc::new(task::ClearCache::new(
-        Arc::clone(&filesystem_file_storage),
-        Arc::clone(&filesystem_cache_storage),
-        Arc::clone(&metadata_storage),
+        filesystem_file_storage.clone(),
+        filesystem_cache_storage.clone(),
+        metadata_storage.clone(),
     ));
 
     let mut task_scheduler = TaskScheduler::new(Arc::clone(&task_storage));
@@ -88,46 +116,51 @@ async fn main() -> std::io::Result<()> {
 
     let task_scheduler = Arc::new(task_scheduler);
 
-    let task_scheduler_thread = {
-        let task_scheduler = task_scheduler.clone();
-        std::thread::spawn(move || {
-            task_scheduler.run().unwrap();
-        })
-    };
+    let task_scheduler_clone = Arc::clone(&task_scheduler);
+    let task_scheduler_clone_for_shutdown = Arc::clone(&task_scheduler);
 
-    let port = env::var("PORT").unwrap_or_else(|_| String::from("8080"));
-    let bind_address = format!("127.0.0.1:{}", port);
+    actix_web::rt::spawn(async move {
+        task_scheduler_clone.run().await;
+    });
+
+    ctrlc::set_handler(move || {
+        task_scheduler_clone_for_shutdown.stop();
+        actix_web::rt::System::current().stop();
+    })
+    .expect("Error setting Ctrl-C handler");
+
+    let bind_address = format!("127.0.0.1:{}", config.server.port.clone());
 
     let server = HttpServer::new(move || {
         App::new()
             .wrap(actix_web::middleware::Logger::default())
             .wrap(actix_cors::Cors::default())
             .wrap(api::middleware_apikey::ApiKeyChecker::new(
-                Arc::clone(&apikey_storage),
-                master_key.clone(),
+                apikey_storage.clone(),
+                config.master_key.clone(),
             ))
             .app_data(web::Data::new(AppState {
-                apikey_storage: Arc::clone(&apikey_storage),
-                named_transformation_storage: Arc::clone(&named_transformation_storage),
+                apikey_storage: apikey_storage.clone(),
+                named_transformation_storage: named_transformation_storage.clone(),
                 transformation_template_registry: Arc::new(TransformationTemplateRegistry::new()),
                 upload_media: Arc::new(task::UploadMedia::new(
-                    Arc::clone(&filesystem_file_storage),
-                    Arc::clone(&filesystem_cache_storage),
-                    Arc::clone(&metadata_storage),
+                    filesystem_file_storage.clone(),
+                    filesystem_cache_storage.clone(),
+                    metadata_storage.clone(),
                 )),
-                read_media: Arc::new(task::ReadMedia::new(Arc::clone(&metadata_storage))),
+                read_media: Arc::new(task::ReadMedia::new(metadata_storage.clone())),
                 download_media: Arc::new(task::DownloadMedia::new(
-                    Arc::clone(&filesystem_file_storage),
-                    Arc::clone(&filesystem_cache_storage),
-                    Arc::clone(&metadata_storage),
+                    filesystem_file_storage.clone(),
+                    filesystem_cache_storage.clone(),
+                    metadata_storage.clone(),
                 )),
                 delete_media: Arc::new(task::DeleteMedia::new(
-                    Arc::clone(&filesystem_file_storage),
-                    Arc::clone(&filesystem_cache_storage),
-                    Arc::clone(&metadata_storage),
+                    filesystem_file_storage.clone(),
+                    filesystem_cache_storage.clone(),
+                    metadata_storage.clone(),
                 )),
                 task_scheduler: task_scheduler.clone(),
-                config: Arc::new(Config::new(master_key.clone())),
+                config: config.clone(),
             }))
             .service(
                 web::scope("/api/v0")
