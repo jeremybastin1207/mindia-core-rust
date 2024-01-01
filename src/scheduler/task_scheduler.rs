@@ -71,3 +71,9 @@ impl TaskScheduler {
         }
     }
 }
+
+impl Drop for TaskScheduler {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}

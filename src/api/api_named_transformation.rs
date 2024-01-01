@@ -1,7 +1,7 @@
 use actix_web::{delete, get, post, web, HttpResponse, Responder};
 
 use crate::api::app_state::AppState;
-use crate::named_transformation::NamedTransformation;
+use crate::transform::NamedTransformation;
 
 #[get("/named_transformation")]
 pub async fn get_named_transformations(data: web::Data<AppState>) -> impl Responder {

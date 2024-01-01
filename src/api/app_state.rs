@@ -2,10 +2,9 @@ use std::sync::Arc;
 
 use crate::apikey::ApiKeyStorage;
 use crate::config::Config;
-use crate::named_transformation::NamedTransformationStorage;
 use crate::scheduler::TaskScheduler;
 use crate::task::{DeleteMedia, DownloadMedia, ReadMedia, UploadMedia};
-use crate::transform::TransformationTemplateRegistry;
+use crate::transform::{NamedTransformationStorage, TransformationTemplateRegistry};
 
 pub struct AppState {
     pub apikey_storage: Arc<dyn ApiKeyStorage>,

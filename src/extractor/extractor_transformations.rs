@@ -1,9 +1,9 @@
 use std::error::Error;
 use std::sync::Arc;
 
-use crate::named_transformation::NamedTransformationStorage;
 use crate::transform::{
-    TransformationDescriptor, TransformationDescriptorChain, TransformationTemplateRegistry,
+    NamedTransformationStorage, TransformationDescriptor, TransformationDescriptorChain,
+    TransformationTemplateRegistry,
 };
 
 const TRANSFORMATION_SEPARATOR: char = '/';

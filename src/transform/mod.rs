@@ -1,3 +1,4 @@
+pub mod named_transformation;
 pub mod path_generator;
 pub mod scaler;
 pub mod transformation_descriptor;
@@ -7,6 +8,10 @@ pub mod transformation_template_registry;
 pub mod watermarker;
 pub mod webp_converter;
 
+pub use named_transformation::{
+    NamedTransformation, NamedTransformationMap, NamedTransformationStorage,
+    RedisNamedTransformationStorage,
+};
 pub use path_generator::PathGenerator;
 pub use scaler::{CropStrategy, Scaler};
 pub use transformation_descriptor::TransformationDescriptor;

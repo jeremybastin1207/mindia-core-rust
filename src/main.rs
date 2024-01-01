@@ -12,7 +12,6 @@ mod config;
 mod extractor;
 mod media;
 mod metadata;
-mod named_transformation;
 mod pipeline;
 mod scheduler;
 mod storage;
@@ -28,10 +27,11 @@ use crate::api::{
 use crate::apikey::{ApiKeyStorage, RedisApiKeyStorage};
 use crate::config::{ConfigLoader, StorageKind};
 use crate::metadata::{MetadataStorage, RedisMetadataStorage};
-use crate::named_transformation::{NamedTransformationStorage, RedisNamedTransformationStorage};
 use crate::scheduler::{RedisTaskStorage, TaskScheduler, TaskStorage};
 use crate::storage::{FileStorage, FilesystemStorage};
-use crate::transform::TransformationTemplateRegistry;
+use crate::transform::{
+    NamedTransformationStorage, RedisNamedTransformationStorage, TransformationTemplateRegistry,
+};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -115,19 +115,11 @@ async fn main() -> std::io::Result<()> {
     task_scheduler.register_task_executor(scheduler::TaskKind::ClearCache, clear_cache_task);
 
     let task_scheduler = Arc::new(task_scheduler);
-
-    let task_scheduler_clone = Arc::clone(&task_scheduler);
-    let task_scheduler_clone_for_shutdown = Arc::clone(&task_scheduler);
+    let task_scheduler_clone = task_scheduler.clone();
 
     actix_web::rt::spawn(async move {
         task_scheduler_clone.run().await;
     });
-
-    ctrlc::set_handler(move || {
-        task_scheduler_clone_for_shutdown.stop();
-        actix_web::rt::System::current().stop();
-    })
-    .expect("Error setting Ctrl-C handler");
 
     let bind_address = format!("127.0.0.1:{}", config.server.port.clone());
 
