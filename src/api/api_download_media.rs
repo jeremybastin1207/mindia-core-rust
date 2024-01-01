@@ -12,7 +12,7 @@ pub async fn download_media(
     let path = path_extractor.path.unwrap();
 
     let result = data
-        .download_media
+        .media_handler
         .download(path, transformation_chain_extractor.transformation_chain);
 
     match result {

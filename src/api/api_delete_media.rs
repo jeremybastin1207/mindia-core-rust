@@ -12,7 +12,7 @@ pub async fn delete_media(
     let path_str = "/".to_owned() + path.as_str();
     let path = Path::new(path_str.as_str())?;
 
-    match data.delete_media.delete(path) {
+    match data.media_handler.delete(path) {
         Ok(()) => Ok(HttpResponse::Ok().finish()),
         Err(e) => Err(e),
     }

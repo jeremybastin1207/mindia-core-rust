@@ -9,6 +9,7 @@ pub mod api_upload_media;
 pub mod app_state;
 pub mod middleware_apikey;
 pub mod path_extractor;
+pub mod server;
 pub mod transformation_chain_extractor;
 pub mod utils;
 
@@ -24,5 +25,6 @@ pub use api_transformation::get_transformation_templates;
 pub use api_upload_media::upload;
 pub use app_state::AppState;
 pub use path_extractor::PathExtractor;
+pub use server::run_server;
 pub use transformation_chain_extractor::TransformationChainExtractor;
 pub use utils::parse_transformation_from_path;

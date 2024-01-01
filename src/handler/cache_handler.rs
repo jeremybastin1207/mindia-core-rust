@@ -14,13 +14,13 @@ pub struct ClearCacheTaskDetails {
     pub before_created_at: DateTime<Utc>,
 }
 
-pub struct ClearCache {
+pub struct CacheHandler {
     file_storage: Arc<dyn FileStorage>,
     cache_storage: Arc<dyn FileStorage>,
     metadata_storage: Arc<dyn MetadataStorage>,
 }
 
-impl ClearCache {
+impl CacheHandler {
     pub fn new(
         file_storage: Arc<dyn FileStorage>,
         cache_storage: Arc<dyn FileStorage>,
@@ -34,7 +34,7 @@ impl ClearCache {
     }
 }
 
-impl TaskExecutor for ClearCache {
+impl TaskExecutor for CacheHandler {
     fn run(&self, mut task: Task) -> Result<Task, Box<dyn Error>> {
         println!("Running task: {:?}", task);
 

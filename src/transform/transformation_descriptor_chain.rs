@@ -32,12 +32,4 @@ impl TransformationDescriptorChain {
     pub fn iter(&self) -> impl Iterator<Item = &TransformationDescriptor> {
         self.transformation_descriptors.iter()
     }
-
-    pub fn as_str(&self) -> String {
-        self.transformation_descriptors
-            .iter()
-            .map(|transformation_descriptor| transformation_descriptor.as_str())
-            .collect::<Vec<_>>()
-            .join(",")
-    }
 }

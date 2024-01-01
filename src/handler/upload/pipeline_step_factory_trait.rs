@@ -1,7 +1,7 @@
 use std::error::Error;
 
+use super::UploadMediaContext;
 use crate::pipeline::PipelineStep;
-use crate::task::UploadMediaContext;
 use crate::transform::TransformationDescriptor;
 
 pub trait PipelineStepFactory {

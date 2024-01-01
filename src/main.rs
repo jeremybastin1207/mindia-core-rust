@@ -1,5 +1,6 @@
-use actix_web::{web, App, HttpServer};
 use redis::Client;
+use scheduler::task_scheduler::run_scheduler;
+use scheduler::TaskExecutor;
 use std::sync::Arc;
 
 extern crate cfg_if;
@@ -10,28 +11,22 @@ mod api;
 mod apikey;
 mod config;
 mod extractor;
+mod handler;
 mod media;
 mod metadata;
 mod pipeline;
 mod scheduler;
 mod storage;
-mod task;
 mod transform;
 mod types;
 
-use crate::api::{
-    clear_cache, delete_apikey, delete_named_transformation, download_media, get_apikeys,
-    get_named_transformations, get_transformation_templates, read_media, save_apikey,
-    save_named_transformation, upload, AppState,
-};
+use crate::api::run_server;
 use crate::apikey::{ApiKeyStorage, RedisApiKeyStorage};
 use crate::config::{ConfigLoader, StorageKind};
 use crate::metadata::{MetadataStorage, RedisMetadataStorage};
-use crate::scheduler::{RedisTaskStorage, TaskScheduler, TaskStorage};
+use crate::scheduler::{RedisTaskStorage, TaskStorage};
 use crate::storage::{FileStorage, FilesystemStorage};
-use crate::transform::{
-    NamedTransformationStorage, RedisNamedTransformationStorage, TransformationTemplateRegistry,
-};
+use crate::transform::{NamedTransformationStorage, RedisNamedTransformationStorage};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -99,78 +94,29 @@ async fn main() -> std::io::Result<()> {
             .expect("Error connecting to Redis"),
     ));
 
-    let filesystem_file_storage: Arc<dyn FileStorage> =
-        Arc::new(FilesystemStorage::new("./mnt/main"));
+    let file_storage: Arc<dyn FileStorage> = Arc::new(FilesystemStorage::new("./mnt/main"));
 
-    let filesystem_cache_storage: Arc<dyn FileStorage> =
-        Arc::new(FilesystemStorage::new("./mnt/cache"));
+    let cache_storage: Arc<dyn FileStorage> = Arc::new(FilesystemStorage::new("./mnt/cache"));
 
-    let clear_cache_task = Arc::new(task::ClearCache::new(
-        filesystem_file_storage.clone(),
-        filesystem_cache_storage.clone(),
+    let clear_cache_task: Arc<dyn TaskExecutor> = Arc::new(handler::CacheHandler::new(
+        file_storage.clone(),
+        cache_storage.clone(),
         metadata_storage.clone(),
     ));
 
-    let mut task_scheduler = TaskScheduler::new(Arc::clone(&task_storage));
-    task_scheduler.register_task_executor(scheduler::TaskKind::ClearCache, clear_cache_task);
+    let task_executors = vec![(scheduler::TaskKind::ClearCache, clear_cache_task.clone())]
+        .into_iter()
+        .collect();
+    let task_scheduler = run_scheduler(task_storage, task_executors);
 
-    let task_scheduler = Arc::new(task_scheduler);
-    let task_scheduler_clone = task_scheduler.clone();
-
-    actix_web::rt::spawn(async move {
-        task_scheduler_clone.run().await;
-    });
-
-    let bind_address = format!("127.0.0.1:{}", config.server.port.clone());
-
-    let server = HttpServer::new(move || {
-        App::new()
-            .wrap(actix_web::middleware::Logger::default())
-            .wrap(actix_cors::Cors::default())
-            .wrap(api::middleware_apikey::ApiKeyChecker::new(
-                apikey_storage.clone(),
-                config.master_key.clone(),
-            ))
-            .app_data(web::Data::new(AppState {
-                apikey_storage: apikey_storage.clone(),
-                named_transformation_storage: named_transformation_storage.clone(),
-                transformation_template_registry: Arc::new(TransformationTemplateRegistry::new()),
-                upload_media: Arc::new(task::UploadMedia::new(
-                    filesystem_file_storage.clone(),
-                    filesystem_cache_storage.clone(),
-                    metadata_storage.clone(),
-                )),
-                read_media: Arc::new(task::ReadMedia::new(metadata_storage.clone())),
-                download_media: Arc::new(task::DownloadMedia::new(
-                    filesystem_file_storage.clone(),
-                    filesystem_cache_storage.clone(),
-                    metadata_storage.clone(),
-                )),
-                delete_media: Arc::new(task::DeleteMedia::new(
-                    filesystem_file_storage.clone(),
-                    filesystem_cache_storage.clone(),
-                    metadata_storage.clone(),
-                )),
-                task_scheduler: task_scheduler.clone(),
-                config: config.clone(),
-            }))
-            .service(
-                web::scope("/api/v0")
-                    .service(get_apikeys)
-                    .service(save_apikey)
-                    .service(delete_apikey)
-                    .service(get_named_transformations)
-                    .service(save_named_transformation)
-                    .service(delete_named_transformation)
-                    .service(get_transformation_templates)
-                    .service(upload)
-                    .service(read_media)
-                    .service(download_media)
-                    .service(clear_cache),
-            )
-    })
-    .bind(&bind_address)?;
-
-    println!("Server is running at http://{}", bind_address);
-    server.run().await
+    run_server(
+        config,
+        file_storage,
+        cache_storage,
+        metadata_storage,
+        named_transformation_storage,
+        apikey_storage,
+        task_scheduler,
+    )
+    .await
 }

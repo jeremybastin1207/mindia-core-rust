@@ -12,7 +12,7 @@ pub async fn read_media(
     let path_str = "/".to_owned() + path.as_str();
     let path = Path::new(path_str.as_str())?;
 
-    match data.read_media.read(path) {
+    match data.media_handler.read(path) {
         Ok(Some(metadata)) => Ok(HttpResponse::Ok().json(metadata)),
         Ok(None) => Ok(HttpResponse::NotFound().finish()),
         Err(e) => Err(e),

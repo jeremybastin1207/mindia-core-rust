@@ -2,10 +2,9 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
 
-use super::{PipelineStepFactory, ScalerFactory, WatermarkerFactory};
+use super::{PipelineStepFactory, ScalerFactory, UploadMediaContext, WatermarkerFactory};
 use crate::pipeline::PipelineStep;
 use crate::storage::FileStorage;
-use crate::task::UploadMediaContext;
 use crate::transform::{TransformationDescriptorChain, TransformationName};
 
 pub struct PipelineStepsFactory {

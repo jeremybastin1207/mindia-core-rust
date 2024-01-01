@@ -62,7 +62,7 @@ pub async fn upload(
     let path = Path::generate(&path_str)?;
 
     let metadata = data
-        .upload_media
+        .media_handler
         .upload(path, transformation_chains, filedata)?;
 
     Ok(HttpResponse::Ok().body(serde_json::to_string(&metadata)?))

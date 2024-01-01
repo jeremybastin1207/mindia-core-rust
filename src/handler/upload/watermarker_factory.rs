@@ -3,11 +3,10 @@ use std::error::Error;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use super::PipelineStepFactory;
+use super::{PipelineStepFactory, UploadMediaContext};
 use crate::media::Path;
 use crate::pipeline::PipelineStep;
 use crate::storage::FileStorage;
-use crate::task::UploadMediaContext;
 use crate::transform::{Anchor, OverlaySinkerFunc, TransformationDescriptor, Watermarker};
 
 pub struct WatermarkerFactory {

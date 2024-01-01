@@ -5,12 +5,11 @@ use std::sync::{
     Arc,
 };
 
-use super::{Task, TaskExecutor, TaskKind, TaskStorage, ThreadPool};
+use super::{Task, TaskExecutor, TaskKind, TaskStorage};
 
 pub struct TaskScheduler {
     should_stop: Arc<AtomicBool>,
     task_storage: Arc<dyn TaskStorage>,
-    thread_pool: ThreadPool,
     task_executors: HashMap<TaskKind, Arc<dyn TaskExecutor>>,
 }
 
@@ -19,7 +18,6 @@ impl TaskScheduler {
         Self {
             should_stop: Arc::new(AtomicBool::new(false)),
             task_storage,
-            thread_pool: ThreadPool::new(4),
             task_executors: HashMap::new(),
         }
     }
@@ -76,4 +74,24 @@ impl Drop for TaskScheduler {
     fn drop(&mut self) {
         self.stop();
     }
+}
+
+pub fn run_scheduler(
+    task_storage: Arc<dyn TaskStorage>,
+    task_executors: HashMap<TaskKind, Arc<dyn TaskExecutor>>,
+) -> Arc<TaskScheduler> {
+    let mut task_scheduler = TaskScheduler::new(Arc::clone(&task_storage));
+
+    for (task_kind, task_executor) in task_executors {
+        task_scheduler.register_task_executor(task_kind, task_executor);
+    }
+
+    let task_scheduler = Arc::new(task_scheduler);
+    let task_scheduler_clone = task_scheduler.clone();
+
+    actix_web::rt::spawn(async move {
+        task_scheduler_clone.run().await;
+    });
+
+    task_scheduler
 }

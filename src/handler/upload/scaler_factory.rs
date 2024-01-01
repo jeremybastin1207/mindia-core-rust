@@ -2,9 +2,8 @@ use std::error::Error;
 
 use image::Rgba;
 
-use super::PipelineStepFactory;
+use super::{PipelineStepFactory, UploadMediaContext};
 use crate::pipeline::PipelineStep;
-use crate::task::UploadMediaContext;
 use crate::transform::{CropStrategy, Scaler, TransformationDescriptor};
 use crate::types::Size;
 
