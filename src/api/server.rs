@@ -2,15 +2,18 @@ use actix_web::{web, App, HttpServer};
 use std::sync::Arc;
 
 use super::{
-    clear_cache, delete_apikey, delete_named_transformation, download_media, get_apikeys,
-    get_named_transformations, get_transformation_templates, middleware_apikey::ApiKeyChecker,
-    read_media, save_apikey, save_named_transformation, upload, AppState,
+    clear_cache, copy_media, delete_apikey, delete_media, delete_named_transformation,
+    download_media, get_apikeys, get_named_transformations, get_transformation_templates,
+    middleware_apikey::ApiKeyChecker, move_media, read_media, save_apikey,
+    save_named_transformation, upload, AppState,
 };
-use crate::handler::{CacheHandler, MediaHandler};
-use crate::transform::TransformationTemplateRegistry;
-use crate::{apikey::ApiKeyStorage, transform::NamedTransformationStorage};
-use crate::{config::Config, storage::FileStorage};
-use crate::{metadata::MetadataStorage, scheduler::TaskScheduler};
+use crate::{
+    handler::{CacheHandler, MediaHandler},
+    transform::TransformationTemplateRegistry,
+    {apikey::ApiKeyStorage, transform::NamedTransformationStorage},
+    {config::Config, storage::FileStorage},
+    {metadata::MetadataStorage, scheduler::TaskScheduler},
+};
 
 pub async fn run_server(
     config: Config,
@@ -40,11 +43,7 @@ pub async fn run_server(
                     cache_storage.clone(),
                     metadata_storage.clone(),
                 ),
-                cache_handler: CacheHandler::new(
-                    file_storage.clone(),
-                    cache_storage.clone(),
-                    metadata_storage.clone(),
-                ),
+                cache_handler: CacheHandler::new(cache_storage.clone(), metadata_storage.clone()),
                 task_scheduler: task_scheduler.clone(),
                 config: config.clone(),
             }))
@@ -60,7 +59,10 @@ pub async fn run_server(
                     .service(upload)
                     .service(read_media)
                     .service(download_media)
-                    .service(clear_cache),
+                    .service(clear_cache)
+                    .service(delete_media)
+                    .service(copy_media)
+                    .service(move_media),
             )
     })
     .bind(&bind_address)?;

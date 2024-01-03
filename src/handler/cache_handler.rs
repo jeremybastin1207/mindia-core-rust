@@ -15,19 +15,16 @@ pub struct ClearCacheTaskDetails {
 }
 
 pub struct CacheHandler {
-    file_storage: Arc<dyn FileStorage>,
     cache_storage: Arc<dyn FileStorage>,
     metadata_storage: Arc<dyn MetadataStorage>,
 }
 
 impl CacheHandler {
     pub fn new(
-        file_storage: Arc<dyn FileStorage>,
         cache_storage: Arc<dyn FileStorage>,
         metadata_storage: Arc<dyn MetadataStorage>,
     ) -> Self {
         Self {
-            file_storage,
             cache_storage,
             metadata_storage,
         }

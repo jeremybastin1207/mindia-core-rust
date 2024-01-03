@@ -1,14 +1,8 @@
-use bytes::Bytes;
-use bytes::BytesMut;
-use image::EncodableLayout;
-use image::{GenericImage, GenericImageView, ImageBuffer, Rgba};
-use imageproc::drawing::draw_filled_rect_mut;
-use imageproc::rect::Rect;
-use std::error::Error;
-use std::str::FromStr;
+use bytes::{Bytes, BytesMut};
+use image::{EncodableLayout, GenericImage, GenericImageView, ImageBuffer, Rgba};
+use imageproc::{drawing::draw_filled_rect_mut, rect::Rect};
+use std::{error::Error, str::FromStr};
 use webp::{Encoder, WebPMemory};
-
-use crate::media::Path;
 
 pub type OverlaySinkerFunc = Box<dyn Fn() -> Result<Bytes, Box<dyn std::error::Error>>>;
 
@@ -48,24 +42,17 @@ impl FromStr for Anchor {
 }
 
 pub struct Watermarker {
-    watermark_path: Path,
     anchor: Anchor,
     padding: u32,
     overlay_sinker: OverlaySinkerFunc,
 }
 
 impl Watermarker {
-    pub fn new(
-        watermark_path: Path,
-        anchor: Anchor,
-        padding: u32,
-        overlay_sinker: OverlaySinkerFunc,
-    ) -> Self {
+    pub fn new(anchor: Anchor, padding: u32, overlay_sinker: OverlaySinkerFunc) -> Self {
         Self {
-            watermark_path: watermark_path,
-            anchor: anchor,
-            padding: padding,
-            overlay_sinker: overlay_sinker,
+            anchor,
+            padding,
+            overlay_sinker,
         }
     }
 

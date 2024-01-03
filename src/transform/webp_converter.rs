@@ -1,10 +1,8 @@
 use bytes::BytesMut;
 use image::io::Reader as ImageReader;
 use image::EncodableLayout;
+use std::{error::Error, io::Cursor};
 use webp::{Encoder, WebPMemory};
-
-use std::error::Error;
-use std::io::Cursor;
 
 use crate::media::Path;
 

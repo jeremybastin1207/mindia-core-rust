@@ -1,14 +1,13 @@
 use bytes::BytesMut;
 use image::io::Reader as ImageReader;
-use image::EncodableLayout;
-use image::{GenericImageView, ImageBuffer, Rgba};
-use std::error::Error;
-use std::io::Cursor;
+use image::{EncodableLayout, GenericImageView, ImageBuffer, Rgba};
+use std::{error::Error, io::Cursor};
 use webp::{Encoder, WebPMemory};
 
-use crate::media::Path;
-use crate::types::position::Position;
-use crate::types::size::Size;
+use crate::{
+    media::Path,
+    types::{position::Position, size::Size},
+};
 
 #[derive(PartialEq)]
 pub enum CropStrategy {

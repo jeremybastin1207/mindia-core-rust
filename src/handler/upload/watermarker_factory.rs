@@ -1,13 +1,13 @@
 use bytes::Bytes;
-use std::error::Error;
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{error::Error, str::FromStr, sync::Arc};
 
 use super::{PipelineStepFactory, UploadMediaContext};
-use crate::media::Path;
-use crate::pipeline::PipelineStep;
-use crate::storage::FileStorage;
-use crate::transform::{Anchor, OverlaySinkerFunc, TransformationDescriptor, Watermarker};
+use crate::{
+    media::Path,
+    pipeline::PipelineStep,
+    storage::FileStorage,
+    transform::{Anchor, OverlaySinkerFunc, TransformationDescriptor, Watermarker},
+};
 
 pub struct WatermarkerFactory {
     pub file_storage: Arc<dyn FileStorage>,
@@ -48,7 +48,6 @@ impl PipelineStepFactory for WatermarkerFactory {
         let path = Path::new(path.as_str())?;
         let anchor = Anchor::from_str(&anchor)?;
         let file_storage = Arc::clone(&self.file_storage);
-        let path2 = path.clone();
 
         let overlay_sinker: OverlaySinkerFunc =
             Box::new(move || -> Result<Bytes, Box<dyn Error>> {
@@ -59,11 +58,6 @@ impl PipelineStepFactory for WatermarkerFactory {
                 }
             });
 
-        Ok(Box::new(Watermarker::new(
-            path2,
-            anchor,
-            padding,
-            overlay_sinker,
-        )))
+        Ok(Box::new(Watermarker::new(anchor, padding, overlay_sinker)))
     }
 }

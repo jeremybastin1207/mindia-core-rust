@@ -52,6 +52,14 @@ impl Path {
     }
 }
 
+impl From<String> for Path {
+    fn from(s: String) -> Self {
+        Self::new(&s).unwrap_or_else(|_| Self {
+            path: PathBuf::new(),
+        })
+    }
+}
+
 impl Serialize for Path {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

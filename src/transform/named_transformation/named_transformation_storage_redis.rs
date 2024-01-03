@@ -12,7 +12,7 @@ pub struct RedisNamedTransformationStorage {
 
 impl RedisNamedTransformationStorage {
     pub fn new(conn: Connection) -> Result<Self, Box<dyn Error>> {
-        let mut storage = RedisNamedTransformationStorage {
+        let storage = RedisNamedTransformationStorage {
             conn: Arc::new(Mutex::new(conn)),
         };
         storage.init()?;
@@ -20,18 +20,16 @@ impl RedisNamedTransformationStorage {
     }
 
     fn init(&self) -> Result<(), Box<dyn Error>> {
-        let mut conn = self.conn.lock().unwrap();
-
         let exists: bool = redis::cmd("EXISTS")
             .arg(NAMED_TRANSFORMATIONS_KEY)
-            .query(&mut conn)?;
+            .query(&mut self.conn.lock().unwrap())?;
 
         if !exists {
             redis::cmd("JSON.SET")
                 .arg(NAMED_TRANSFORMATIONS_KEY)
                 .arg(".")
                 .arg("{}")
-                .query(&mut conn)?;
+                .query(&mut self.conn.lock().unwrap())?;
         }
 
         Ok(())
@@ -40,22 +38,18 @@ impl RedisNamedTransformationStorage {
 
 impl NamedTransformationStorage for RedisNamedTransformationStorage {
     fn get_all(&self) -> Result<NamedTransformationMap, Box<dyn Error>> {
-        let mut conn = self.conn.lock().unwrap();
-
         let result: String = redis::cmd("JSON.GET")
             .arg(NAMED_TRANSFORMATIONS_KEY)
-            .query(&mut conn)?;
+            .query(&mut self.conn.lock().unwrap())?;
 
         serde_json::from_str(&result).map_err(|e| e.into())
     }
 
     fn get_by_name(&self, name: &str) -> Result<Option<NamedTransformation>, Box<dyn Error>> {
-        let mut conn = self.conn.lock().unwrap();
-
         let result: Option<String> = redis::cmd("JSON.GET")
             .arg(NAMED_TRANSFORMATIONS_KEY)
             .arg(name)
-            .query(&mut conn)?;
+            .query(&mut self.conn.lock().unwrap())?;
 
         result
             .map(|json| serde_json::from_str(&json))
@@ -64,26 +58,22 @@ impl NamedTransformationStorage for RedisNamedTransformationStorage {
     }
 
     fn save(&self, named_transformation: NamedTransformation) -> Result<(), Box<dyn Error>> {
-        let mut conn = self.conn.lock().unwrap();
-
         let transformation_json = serde_json::to_string(&named_transformation)?;
 
         redis::cmd("JSON.SET")
             .arg(NAMED_TRANSFORMATIONS_KEY)
             .arg(named_transformation.name)
             .arg(transformation_json)
-            .query(&mut conn)?;
+            .query(&mut self.conn.lock().unwrap())?;
 
         Ok(())
     }
 
     fn delete(&self, named_transformation_name: &str) -> Result<(), Box<dyn Error>> {
-        let mut conn = self.conn.lock().unwrap();
-
         redis::cmd("JSON.DEL")
             .arg(NAMED_TRANSFORMATIONS_KEY)
             .arg(named_transformation_name)
-            .query(&mut conn)?;
+            .query(&mut self.conn.lock().unwrap())?;
 
         Ok(())
     }

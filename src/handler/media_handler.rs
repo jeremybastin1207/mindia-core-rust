@@ -1,15 +1,15 @@
-use bytes::Bytes;
-use bytes::BytesMut;
-use std::error::Error;
-use std::sync::Arc;
+use bytes::{Bytes, BytesMut};
+use std::{error::Error, sync::Arc};
 
 use super::{PipelineStepsFactory, UploadMediaContext};
-use crate::extractor::ExifExtractor;
-use crate::media::{MediaGroupHandle, Path};
-use crate::metadata::{Metadata, MetadataStorage};
-use crate::pipeline::{Pipeline, PipelineExecutor, Sinker, Source};
-use crate::storage::FileStorage;
-use crate::transform::{PathGenerator, TransformationDescriptorChain, WebpConverter};
+use crate::{
+    extractor::ExifExtractor,
+    media::{MediaGroupHandle, Path},
+    metadata::{Metadata, MetadataStorage},
+    pipeline::{Pipeline, PipelineExecutor, Sinker, Source},
+    storage::FileStorage,
+    transform::{PathGenerator, TransformationDescriptorChain, WebpConverter},
+};
 
 pub struct MediaHandler {
     file_storage: Arc<dyn FileStorage>,
@@ -209,6 +209,72 @@ impl MediaHandler {
                 Ok(Some(output.attributes.media_handle.body.freeze()))
             }
         }
+    }
+
+    pub fn move_(&self, src: Path, dst: Path) -> Result<(), Box<dyn Error>> {
+        let file_storage = self.file_storage.clone();
+        let cache_storage = self.cache_storage.clone();
+        let metadata_storage = self.metadata_storage.clone();
+
+        let mut metadata = match metadata_storage.get_by_path(src.as_str()?)? {
+            Some(metadata) => metadata,
+            None => {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "Metadata not found",
+                )));
+            }
+        };
+
+        let mut new_derived_medias: Vec<Metadata> = Vec::new();
+
+        for mut derived_media in metadata.derived_medias {
+            cache_storage.move_(derived_media.path.as_str()?, dst.as_str()?)?;
+            derived_media.path = dst.clone().into();
+            new_derived_medias.push(derived_media);
+        }
+
+        metadata.derived_medias = new_derived_medias;
+
+        file_storage.move_(src.as_str()?, dst.as_str()?)?;
+        metadata.path = dst.clone().into();
+
+        metadata_storage.save(dst.as_str()?, metadata.clone())?;
+
+        Ok(())
+    }
+
+    pub fn copy(&self, src: Path, dst: Path) -> Result<(), Box<dyn Error>> {
+        let file_storage = self.file_storage.clone();
+        let cache_storage = self.cache_storage.clone();
+        let metadata_storage = self.metadata_storage.clone();
+
+        let mut metadata = match metadata_storage.get_by_path(src.as_str()?)? {
+            Some(metadata) => metadata,
+            None => {
+                return Err(Box::new(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "Metadata not found",
+                )));
+            }
+        };
+
+        let mut new_derived_medias: Vec<Metadata> = Vec::new();
+
+        for mut derived_media in metadata.derived_medias {
+            cache_storage.copy(derived_media.path.as_str()?, dst.as_str()?)?;
+            derived_media.path = dst.clone().into();
+            new_derived_medias.push(derived_media);
+        }
+
+        metadata.derived_medias = new_derived_medias;
+
+        file_storage.copy(src.as_str()?, dst.as_str()?)?;
+        metadata.path = dst.clone().into();
+
+        metadata_storage.save(dst.as_str()?, metadata.clone())?;
+
+        Ok(())
     }
 
     pub fn delete(&self, path: Path) -> Result<(), Box<dyn Error>> {

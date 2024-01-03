@@ -25,6 +25,16 @@ impl FileStorage for S3Storage {
         Ok(None)
     }
 
+    fn move_(&self, src: &str, dst: &str) -> Result<(), Box<dyn Error>> {
+        println!("Moving from S3");
+        Ok(())
+    }
+
+    fn copy(&self, src: &str, dst: &str) -> Result<(), Box<dyn Error>> {
+        println!("Copying from S3");
+        Ok(())
+    }
+
     fn delete(&self, path: &str) -> Result<(), Box<dyn Error>> {
         println!("Deleting from S3");
         Ok(())

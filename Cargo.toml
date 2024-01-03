@@ -13,6 +13,7 @@ features = [
 
 [dependencies]
 actix-web = "4"
+actix-rt = "2.2.0"
 image = "0.24.7"
 imageproc = "0.23.0"
 reqwest = { version = "0.11", features = ["json"] }
@@ -37,7 +38,7 @@ mime_guess = "2.0.4"
 webp = "0.2"
 chrono = { version = "0.4", features = ["serde"] }
 actix-cors = "0.6.5"
-opentelemetry = { version = "0.20", features = ["trace"] }
-opentelemetry-stdout = { version = "0.1", features = ["trace"] }
+opentelemetry = { version = "0.20", features = ["metrics", "trace"] }
+opentelemetry-stdout = { version = "0.1", features = ["metrics", "trace"] }
+opentelemetry-prometheus = { version = "0.14" }
 toml = "0.5.2"
-ctrlc = "3.4.2"

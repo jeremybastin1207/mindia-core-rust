@@ -1,3 +1,4 @@
+use opentelemetry::global;
 use redis::Client;
 use scheduler::task_scheduler::run_scheduler;
 use scheduler::TaskExecutor;
@@ -30,6 +31,9 @@ use crate::transform::{NamedTransformationStorage, RedisNamedTransformationStora
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    // Initialize the global tracer
+    global::set_text_map_propagator(opentelemetry::sdk::propagation::TraceContextPropagator::new());
+
     let config = ConfigLoader::load().unwrap();
 
     let redis_client = if let Some(redis) = config.adapter.redis.clone() {
@@ -99,7 +103,6 @@ async fn main() -> std::io::Result<()> {
     let cache_storage: Arc<dyn FileStorage> = Arc::new(FilesystemStorage::new("./mnt/cache"));
 
     let clear_cache_task: Arc<dyn TaskExecutor> = Arc::new(handler::CacheHandler::new(
-        file_storage.clone(),
         cache_storage.clone(),
         metadata_storage.clone(),
     ));
