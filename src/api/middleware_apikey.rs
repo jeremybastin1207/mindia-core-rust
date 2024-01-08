@@ -10,10 +10,6 @@ use std::sync::Arc;
 
 use crate::apikey::ApiKeyStorage;
 
-// There are two steps in middleware processing.
-// 1. Middleware initialization, middleware factory gets called with
-//    next service in chain as parameter.
-// 2. Middleware's call method gets called with normal request.
 pub struct ApiKeyChecker {
     api_key_storage: Arc<dyn ApiKeyStorage>,
     master_key: String,
@@ -28,9 +24,6 @@ impl ApiKeyChecker {
     }
 }
 
-// Middleware factory is `Transform` trait
-// `S` - type of the next service
-// `B` - type of response's body
 impl<S, B> Transform<S, ServiceRequest> for ApiKeyChecker
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
@@ -39,8 +32,8 @@ where
 {
     type Response = ServiceResponse<EitherBody<B, BoxBody>>;
     type Error = Error;
-    type InitError = ();
     type Transform = ApiKeyCheckerMiddleware<S>;
+    type InitError = ();
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {

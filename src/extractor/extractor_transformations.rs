@@ -66,8 +66,8 @@ impl TransformationsExtractor {
                             )
                         })?;
 
-                    for tranformation in named_transformation.transformations {
-                        transformation_chain.add(tranformation);
+                    for transformation in named_transformation.transformations {
+                        transformation_chain.add(transformation);
                     }
                 } else {
                     let transformation_parts = transformation_str

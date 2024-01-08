@@ -5,6 +5,9 @@ use futures::StreamExt;
 use serde::Deserialize;
 use serde_json::Value;
 use std::error::Error;
+use log::error;
+use opentelemetry::global;
+use opentelemetry::trace::{Span, SpanKind, Status, Tracer};
 
 use super::{AppState, PathExtractor, TransformationChainExtractor};
 use crate::extractor::TransformationsExtractor;
@@ -31,16 +34,31 @@ pub async fn download_media(
     transformation_chain_extractor: TransformationChainExtractor,
     path_extractor: PathExtractor,
 ) -> Result<HttpResponse, Box<dyn Error>> {
-    let path = path_extractor.path.unwrap();
+    let path = match path_extractor.path {
+        Some(path) => path,
+        None => {
+            error!("Path is not provided");
+            return Err("Path is not provided".into());
+        }
+    };
 
-    let result = data
+    let result = match data
         .media_handler
-        .download(path, transformation_chain_extractor.transformation_chain);
+        .download(path, transformation_chain_extractor.transformation_chain).await
+    {
+        Ok(result) => result,
+        Err(e) => {
+            error!("Failed to download media: {}", e);
+            return Err(e.into());
+        }
+    };
 
     match result {
-        Ok(Some(body)) => Ok(HttpResponse::Ok().body(body)),
-        Ok(None) => Ok(HttpResponse::NotFound().finish()),
-        Err(e) => Err(e.into()),
+        Some(body) => Ok(HttpResponse::Ok().body(body)),
+        None => {
+            log::warn!("Media not found");
+            Ok(HttpResponse::NotFound().finish())
+        },
     }
 }
 
@@ -50,6 +68,13 @@ pub async fn upload(
     path: web::Path<String>,
     mut payload: Multipart,
 ) -> Result<HttpResponse, Box<dyn Error>> {
+    let tracer = global::tracer("upload_media");
+
+    let mut span = tracer
+        .span_builder(format!("uploading media with path {}", path))
+        .with_kind(SpanKind::Server)
+        .start(&tracer);
+
     let named_transformation_storage = data.named_transformation_storage.clone();
     let transformation_template_registry = data.transformation_template_registry.clone();
 
@@ -98,9 +123,13 @@ pub async fn upload(
 
     let metadata = data
         .media_handler
-        .upload(path, transformation_chains, filedata)?;
+        .upload(path, transformation_chains, filedata).await?;
 
-    Ok(HttpResponse::Ok().body(serde_json::to_string(&metadata)?))
+    let json_response = serde_json::to_string(&metadata)?;
+
+    span.set_status(Status::Ok);
+
+    Ok(HttpResponse::Ok().body(json_response))
 }
 
 #[derive(Deserialize)]
@@ -116,7 +145,7 @@ pub async fn move_media(
 ) -> Result<HttpResponse, Box<dyn Error>> {
     match data
         .media_handler
-        .move_(body.src.clone().into(), body.dst.clone().into())
+        .move_(body.src.clone().into(), body.dst.clone().into()).await
     {
         Ok(()) => Ok(HttpResponse::Ok().finish()),
         Err(e) => Err(e),
@@ -136,7 +165,7 @@ pub async fn copy_media(
 ) -> Result<HttpResponse, Box<dyn Error>> {
     match data
         .media_handler
-        .copy(body.src.clone().into(), body.dst.clone().into())
+        .copy(body.src.clone().into(), body.dst.clone().into()).await
     {
         Ok(()) => Ok(HttpResponse::Ok().finish()),
         Err(e) => Err(e),
@@ -150,7 +179,7 @@ pub async fn delete_media(
 ) -> Result<HttpResponse, Box<dyn Error>> {
     let path = path_extractor.path.unwrap();
 
-    match data.media_handler.delete(path) {
+    match data.media_handler.delete(path).await {
         Ok(()) => Ok(HttpResponse::Ok().finish()),
         Err(e) => Err(e),
     }

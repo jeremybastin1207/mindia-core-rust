@@ -15,7 +15,7 @@ pub struct MediaHandler {
     file_storage: Arc<dyn FileStorage>,
     cache_storage: Arc<dyn FileStorage>,
     metadata_storage: Arc<dyn MetadataStorage>,
-    pipline_steps_factory: PipelineStepsFactory,
+    pipeline_steps_factory: PipelineStepsFactory,
 }
 
 impl MediaHandler {
@@ -28,7 +28,7 @@ impl MediaHandler {
             file_storage: file_storage.clone(),
             cache_storage,
             metadata_storage,
-            pipline_steps_factory: PipelineStepsFactory::new(file_storage),
+            pipeline_steps_factory: PipelineStepsFactory::new(file_storage),
         }
     }
 
@@ -38,7 +38,7 @@ impl MediaHandler {
         Ok(result)
     }
 
-    pub fn upload(
+    pub async fn upload(
         &self,
         path: Path,
         transformation_chains: Vec<TransformationDescriptorChain>,
@@ -50,21 +50,21 @@ impl MediaHandler {
         let output = PipelineExecutor::new().execute::<UploadMediaContext>(Pipeline::<
             UploadMediaContext,
         >::new(
-            Source::new(Box::new(move |mut context| {
-                context.attributes.media_handle.metadata.path = path.clone();
-                context.attributes.media_handle.body = body.clone();
+            Source::new(Box::new(move |mut ctx| {
+                ctx.attributes.media_handle.metadata.path = path.clone();
+                ctx.attributes.media_handle.body = body.clone();
 
-                Ok(context)
+                Ok(ctx)
             })),
-            Sinker::new(Box::new(move |context| {
+            Sinker::new(Box::new(move |ctx| {
                 file_storage.upload(
-                    context.attributes.media_handle.metadata.path.as_str()?,
-                    context.attributes.media_handle.body.clone().into(),
+                    ctx.attributes.media_handle.metadata.path.as_str()?,
+                    ctx.attributes.media_handle.body.clone().into(),
                 )?;
 
                 metadata_storage.save(
-                    context.attributes.media_handle.metadata.path.as_str()?,
-                    context.attributes.media_handle.metadata.clone(),
+                    ctx.attributes.media_handle.metadata.path.as_str()?,
+                    ctx.attributes.media_handle.metadata.clone(),
                 )?;
 
                 Ok(())
@@ -87,29 +87,29 @@ impl MediaHandler {
                 let output = output.clone();
 
                 let mut transformation_steps = self
-                    .pipline_steps_factory
+                    .pipeline_steps_factory
                     .create(transformation_chain.clone())?;
                 transformation_steps.push(Box::new(PathGenerator::default()));
 
                 let output = PipelineExecutor::new().execute::<UploadMediaContext>(Pipeline::<
                     UploadMediaContext,
                 >::new(
-                    Source::new(Box::new(move |mut context| {
-                        context.attributes.media_handle.metadata.path =
+                    Source::new(Box::new(move |mut ctx| {
+                        ctx.attributes.media_handle.metadata.path =
                             output.attributes.media_handle.metadata.path.clone();
-                        context.attributes.media_handle.body =
+                        ctx.attributes.media_handle.body =
                             output.attributes.media_handle.body.clone();
-                        context
+                        ctx
                             .attributes
                             .transformations
-                            .set(transformation_chain.get_trasnfomation_descriptors().clone());
+                            .set(transformation_chain.get_transformation_descriptors().clone());
 
-                        Ok(context)
+                        Ok(ctx.clone())
                     })),
-                    Sinker::new(Box::new(move |context| {
+                    Sinker::new(Box::new(move |ctx| {
                         cache_storage.upload(
-                            context.attributes.media_handle.metadata.path.as_str()?,
-                            context.attributes.media_handle.body.clone().into(),
+                            ctx.attributes.media_handle.metadata.path.as_str()?,
+                            ctx.attributes.media_handle.body.clone().into(),
                         )?;
 
                         Ok(())
@@ -129,7 +129,7 @@ impl MediaHandler {
         Ok(output.attributes.media_handle.metadata)
     }
 
-    pub fn download(
+    pub async fn download(
         &self,
         path: Path,
         transformation_chain: Option<TransformationDescriptorChain>,
@@ -150,7 +150,7 @@ impl MediaHandler {
             Some(file_bytes) => Ok(Some(file_bytes)),
             None => {
                 let mut transformation_steps = self
-                    .pipline_steps_factory
+                    .pipeline_steps_factory
                     .create(transformation_chain.clone())?;
                 transformation_steps.push(Box::new(PathGenerator::default()));
 
@@ -170,30 +170,29 @@ impl MediaHandler {
                 let output = PipelineExecutor::new().execute::<UploadMediaContext>(Pipeline::<
                     UploadMediaContext,
                 >::new(
-                    Source::new(Box::new(move |mut context| {
-                        let file_bytes = file_storage.download(path.as_str()?)?;
+                    Source::new(Box::new(move |mut ctx| {
+                         let file_bytes = file_storage.download(path.as_str()?)?;
 
-                        if let Some(file_bytes) = file_bytes {
-                            context.attributes.media_handle.body = BytesMut::from(&file_bytes[..]);
-                        } else {
+                         if let Some(file_bytes) = file_bytes {
+                            ctx.attributes.media_handle.body = BytesMut::from(&file_bytes[..]);
+                         } else {
                             return Err(Box::new(std::io::Error::new(
                                 std::io::ErrorKind::NotFound,
                                 "File not found",
                             )));
-                        }
+                         }
 
-                        context.attributes.media_handle.metadata.path = path.clone();
-                        context
-                            .attributes
+                        ctx.attributes.media_handle.metadata.path = path.clone();
+                        ctx.attributes
                             .transformations
-                            .set(transformation_chain.get_trasnfomation_descriptors().clone());
+                            .set(transformation_chain.get_transformation_descriptors().clone());
 
-                        Ok(context)
+                        Ok(ctx)
                     })),
-                    Sinker::new(Box::new(move |context| {
+                    Sinker::new(Box::new(move |ctx| {
                         cache_storage.upload(
-                            context.attributes.media_handle.metadata.path.as_str()?,
-                            context.attributes.media_handle.body.clone().into(),
+                            ctx.attributes.media_handle.metadata.path.as_str()?,
+                            ctx.attributes.media_handle.body.clone().into(),
                         )?;
 
                         Ok(())
@@ -211,7 +210,7 @@ impl MediaHandler {
         }
     }
 
-    pub fn move_(&self, src: Path, dst: Path) -> Result<(), Box<dyn Error>> {
+    pub async fn move_(&self, src: Path, dst: Path) -> Result<(), Box<dyn Error>> {
         let file_storage = self.file_storage.clone();
         let cache_storage = self.cache_storage.clone();
         let metadata_storage = self.metadata_storage.clone();
@@ -244,7 +243,7 @@ impl MediaHandler {
         Ok(())
     }
 
-    pub fn copy(&self, src: Path, dst: Path) -> Result<(), Box<dyn Error>> {
+    pub async fn copy(&self, src: Path, dst: Path) -> Result<(), Box<dyn Error>> {
         let file_storage = self.file_storage.clone();
         let cache_storage = self.cache_storage.clone();
         let metadata_storage = self.metadata_storage.clone();
@@ -277,7 +276,7 @@ impl MediaHandler {
         Ok(())
     }
 
-    pub fn delete(&self, path: Path) -> Result<(), Box<dyn Error>> {
+    pub async fn delete(&self, path: Path) -> Result<(), Box<dyn Error>> {
         let file_storage = self.file_storage.clone();
         let cache_storage = self.cache_storage.clone();
         let metadata_storage = self.metadata_storage.clone();

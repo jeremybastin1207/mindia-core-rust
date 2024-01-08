@@ -1,4 +1,3 @@
-use bytes::Bytes;
 use std::{error::Error, str::FromStr, sync::Arc};
 
 use super::{PipelineStepFactory, UploadMediaContext};
@@ -50,7 +49,7 @@ impl PipelineStepFactory for WatermarkerFactory {
         let file_storage = Arc::clone(&self.file_storage);
 
         let overlay_sinker: OverlaySinkerFunc =
-            Box::new(move || -> Result<Bytes, Box<dyn Error>> {
+            Box::new(move || {
                 let bytes = file_storage.download(path.as_str()?)?;
                 match bytes {
                     Some(bytes) => Ok(bytes),

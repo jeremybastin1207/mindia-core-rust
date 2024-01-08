@@ -21,7 +21,7 @@ impl TransformationDescriptorChain {
             .push(transformation_descriptor);
     }
 
-    pub fn get_trasnfomation_descriptors(&self) -> &Vec<TransformationDescriptor> {
+    pub fn get_transformation_descriptors(&self) -> &Vec<TransformationDescriptor> {
         &self.transformation_descriptors
     }
 

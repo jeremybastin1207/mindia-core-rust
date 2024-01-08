@@ -1,7 +1,10 @@
 use actix_web::{delete, get, post, web, HttpResponse, Responder};
 
-use crate::api::app_state::AppState;
-use crate::apikey::ApiKey;
+use crate::{
+    api::app_state::AppState,
+    apikey::ApiKey,
+    utils::generate_apikey,
+};
 
 #[get("/apikey")]
 pub async fn get_apikeys(data: web::Data<AppState>) -> impl Responder {
@@ -21,7 +24,7 @@ pub async fn save_apikey(
 ) -> impl Responder {
     let apikey = ApiKey {
         name: new_apikey.name.clone(),
-        key: new_apikey.key.clone(),
+        key: generate_apikey(),
     };
 
     match data.apikey_storage.save(apikey) {

@@ -3,9 +3,11 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::sync::Arc;
 
-use crate::metadata::MetadataStorage;
-use crate::scheduler::{Details, Task, TaskExecutor, TaskStatus};
-use crate::storage::FileStorage;
+use crate::{
+    metadata::MetadataStorage,
+    scheduler::{Details, Task, TaskExecutor, TaskStatus},
+    storage::FileStorage,
+};
 
 const METADATA_LIMIT: u32 = 100;
 
@@ -37,7 +39,6 @@ impl TaskExecutor for CacheHandler {
 
         let before_date = match task.details {
             Details::ClearCache { before_date } => before_date,
-            _ => return Err("Invalid task details".into()),
         };
 
         let metadatas = self

@@ -1,8 +1,16 @@
-use opentelemetry::global;
 use redis::Client;
 use scheduler::task_scheduler::run_scheduler;
 use scheduler::TaskExecutor;
 use std::sync::Arc;
+use log4rs::append::console::ConsoleAppender;
+use log4rs::Config;
+use log4rs::config::{Appender, Root};
+use log::LevelFilter;
+use opentelemetry::global;
+use opentelemetry::sdk::trace::TracerProvider;
+use opentelemetry::sdk::propagation::TraceContextPropagator;
+use opentelemetry_otlp::{ExportConfig, SpanExporter, TonicConfig};
+use tonic::transport::Channel;
 
 extern crate cfg_if;
 extern crate exif;
@@ -20,19 +28,54 @@ mod scheduler;
 mod storage;
 mod transform;
 mod types;
+mod utils;
 
-use crate::api::run_server;
-use crate::apikey::{ApiKeyStorage, RedisApiKeyStorage};
-use crate::config::{ConfigLoader, StorageKind};
-use crate::metadata::{MetadataStorage, RedisMetadataStorage};
-use crate::scheduler::{RedisTaskStorage, TaskStorage};
-use crate::storage::{FileStorage, FilesystemStorage};
-use crate::transform::{NamedTransformationStorage, RedisNamedTransformationStorage};
+use crate::{
+    api::run_server,
+    apikey::{ApiKeyStorage, RedisApiKeyStorage},
+    config::{ConfigLoader, StorageKind},
+    metadata::{MetadataStorage, RedisMetadataStorage},
+    scheduler::{RedisTaskStorage, TaskStorage},
+    storage::{FileStorage, FilesystemStorage},
+    transform::{NamedTransformationStorage, RedisNamedTransformationStorage},
+};
+
+fn init_tracer() {
+    let otlp_collector_url = "https://otlp-gateway-prod-eu-west-0.grafana.net/otlp";
+
+    let export_config = ExportConfig {
+        endpoint: otlp_collector_url.to_string(),
+        ..Default::default()
+    };
+
+    match  SpanExporter::new_tonic(export_config, TonicConfig::default())  {
+        Ok(exporter) => {
+            let provider = TracerProvider::builder()
+                .with_simple_exporter(exporter)
+                .build();
+            global::set_tracer_provider(provider);
+            global::set_text_map_propagator(TraceContextPropagator::new());
+        },
+        Err(why) => panic!("{:?}", why)
+    }
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    // Initialize the global tracer
-    global::set_text_map_propagator(opentelemetry::sdk::propagation::TraceContextPropagator::new());
+    let stdout = ConsoleAppender::builder().build();
+
+    let config = Config::builder()
+        .appender(Appender::builder().build("stdout", Box::new(stdout)))
+        .build(
+            Root::builder()
+                .appender("stdout")
+                .build(LevelFilter::Info),
+        )
+        .unwrap();
+
+    log4rs::init_config(config).unwrap();
+
+    //init_tracer();
 
     let config = ConfigLoader::load().unwrap();
 

@@ -1,11 +1,11 @@
-use actix_web::dev::Payload;
-use actix_web::{web, FromRequest, HttpRequest};
-use futures::executor::block_on;
-use futures::future::{ready, Ready};
+use actix_web::{web, FromRequest, HttpRequest, dev::Payload};
+use futures::{future::{ready, Ready}, executor::block_on};
 
 use super::{parse_transformation_from_path, AppState};
-use crate::extractor::TransformationsExtractor;
-use crate::transform::TransformationDescriptorChain;
+use crate::{
+    extractor::TransformationsExtractor,
+    transform::TransformationDescriptorChain,
+};
 
 pub struct TransformationChainExtractor {
     pub transformation_chain: Option<TransformationDescriptorChain>,
