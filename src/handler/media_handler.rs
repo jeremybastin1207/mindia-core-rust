@@ -80,8 +80,6 @@ impl MediaHandler {
             MediaGroupHandle::new(output.attributes.media_handle.clone(), vec![]);
 
         if !transformation_chains.is_empty() {
-            println!("Running pipeline");
-
             let metadata_storage = self.metadata_storage.clone();
 
             for transformation_chain in transformation_chains {
@@ -127,8 +125,6 @@ impl MediaHandler {
                 media_group_handle.media.metadata.clone(),
             )?;
         }
-
-        println!("end");
 
         Ok(media_group_handle.media.metadata)
     }

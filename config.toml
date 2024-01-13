@@ -6,7 +6,16 @@ host = "127.0.0.1"
 port = 6379
 password = ""
 
-[storage.filesystem]
+[file_storage]
+storage_kind = "filesystem"
+
+[cache_storage]
+storage_kind = "filesystem"
+
+[file_storage.filesystem]
+mount_dir = "./mnt"
+
+[cache_storage.filesystem]
 mount_dir = "./mnt"
 
 [apikey]

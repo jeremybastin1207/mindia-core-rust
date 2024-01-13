@@ -31,9 +31,6 @@ impl PipelineStepFactory for ColorizerFactory {
             .unwrap_or(&"false".to_string())
             .parse::<bool>()?;
 
-
-        Ok(Box::new(Colorizer::new(
-            self.file_storage.clone(),
-        )))
+        Err("Not implemented".into())
     }
 }

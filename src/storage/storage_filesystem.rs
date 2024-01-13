@@ -10,9 +10,9 @@ pub struct FilesystemStorage {
 }
 
 impl FilesystemStorage {
-    pub fn new(mount_dir: &str) -> Self {
+    pub fn new(mount_dir: String) -> Self {
         Self {
-            mount_dir: mount_dir.to_string(),
+            mount_dir,
         }
     }
 }

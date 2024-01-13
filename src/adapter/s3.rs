@@ -16,14 +16,11 @@ pub struct S3 {
 }
 
 impl S3 {
-    pub async fn new(bucket_name: String) -> Result<Self, Box<dyn Error>> {
-        let config = aws_config::load_defaults(aws_config::BehaviorVersion {}).await;
-        let client = s3::Client::new(&config);
-
-        Ok(Self {
+    pub fn new(client: s3::Client, bucket_name: String) -> Self {
+        Self {
             client,
             bucket_name,
-        })
+        }
     }
 
     pub async fn upload_object(

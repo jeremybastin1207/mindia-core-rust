@@ -1,15 +1,28 @@
 use serde::Deserialize;
 
 #[derive(Clone, Deserialize)]
-pub struct RedisConfig {
+pub struct RedisAdapterConfig {
     pub host: String,
     pub port: u16,
     pub password: Option<String>,
 }
 
 #[derive(Clone, Deserialize)]
-pub struct FilesystemConfig {
+pub struct S3AdapterConfig {
+    pub access_key_id: String,
+    pub secret_access_key: String,
+    pub endpoint: String,
+    pub region: String,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct FilesystemStorageConfig {
     pub mount_dir: String,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct S3StorageConfig {
+    pub bucket_name: String,
 }
 
 #[derive(Clone, Deserialize)]
@@ -19,12 +32,15 @@ pub struct ServerConfig {
 
 #[derive(Clone, Deserialize)]
 pub struct AdapterConfig {
-    pub redis: Option<RedisConfig>,
+    pub redis: Option<RedisAdapterConfig>,
+    pub s3: Option<S3AdapterConfig>,
 }
 
 #[derive(Clone, Deserialize)]
 pub struct StorageConfig {
-    pub filesystem: Option<FilesystemConfig>,
+    pub storage_kind: StorageKind,
+    pub filesystem: Option<FilesystemStorageConfig>,
+    pub s3: Option<S3StorageConfig>,
 }
 
 #[derive(Clone, Deserialize, PartialEq)]
@@ -32,6 +48,7 @@ pub struct StorageConfig {
 pub enum StorageKind {
     Filesystem,
     Redis,
+    S3,
 }
 
 #[derive(Clone, Deserialize)]
@@ -55,7 +72,8 @@ pub struct Config {
     pub master_key: String,
     pub server: ServerConfig,
     pub adapter: AdapterConfig,
-    pub storage: StorageConfig,
+    pub file_storage: StorageConfig,
+    pub cache_storage: StorageConfig,
     pub apikey: ApiKeyConfig,
     pub named_transformation: NamedTransformationConfig,
     pub metadata: MetadataConfig,

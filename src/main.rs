@@ -2,16 +2,18 @@ use redis::Client;
 use scheduler::task_scheduler::run_scheduler;
 use scheduler::TaskExecutor;
 use std::sync::Arc;
+use aws_types::region::Region;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::Config;
 use log4rs::config::{Appender, Root};
 use log::LevelFilter;
+use crate::adapter::{ S3};
 use crate::api::run_server;
 use crate::apikey::{ApiKeyStorage, RedisApiKeyStorage};
 use crate::config::{ConfigLoader, StorageKind};
 use crate::metadata::{MetadataStorage, RedisMetadataStorage};
 use crate::scheduler::{RedisTaskStorage, TaskStorage};
-use crate::storage::{FileStorage, FilesystemStorage};
+use crate::storage::{FileStorage, FilesystemStorage, S3Storage};
 use crate::transform::{NamedTransformationStorage, RedisNamedTransformationStorage};
 
 extern crate cfg_if;
@@ -81,6 +83,18 @@ async fn main() -> std::io::Result<()> {
         None
     };
 
+    let s3_client = if let Some(s3) = config.adapter.s3.clone() {
+        let creds = aws_sdk_s3::config::Credentials::new(s3.access_key_id, s3.secret_access_key, None, None, "");
+        let conf = aws_sdk_s3::Config::builder()
+            .credentials_provider(creds)
+            .region(Region::new(s3.region.clone() ))
+            .build();
+
+        Some(aws_sdk_s3::Client::from_conf(conf))
+    } else {
+        None
+    };
+
     let apikey_storage: Arc<dyn ApiKeyStorage> = match config.apikey.storage_kind {
         StorageKind::Filesystem => panic!("Filesystem storage for apikeys is not supported yet"),
         StorageKind::Redis => {
@@ -92,7 +106,8 @@ async fn main() -> std::io::Result<()> {
             Arc::new(
                 RedisApiKeyStorage::new(redis_conn).expect("Error creating RedisApiKeyStorage"),
             )
-        }
+        },
+        StorageKind::S3 => panic!("S3 storage for apikeys is not supported yet"),
     };
 
     let named_transformation_storage: Arc<dyn NamedTransformationStorage> =
@@ -110,7 +125,8 @@ async fn main() -> std::io::Result<()> {
                     RedisNamedTransformationStorage::new(redis_conn)
                         .expect("Error creating RedisNamedTransformationStorage"),
                 )
-            }
+            },
+            StorageKind::S3 => panic!("S3 storage for named transformations is not supported yet"),
         };
 
     let metadata_storage: Arc<dyn MetadataStorage> = match config.metadata.storage_kind {
@@ -124,7 +140,8 @@ async fn main() -> std::io::Result<()> {
                 .get_connection()
                 .expect("Error connecting to Redis");
             Arc::new(RedisMetadataStorage::new(redis_conn))
-        }
+        },
+        StorageKind::S3 => panic!("S3 storage for metadata is not supported yet"),
     };
 
     let task_storage: Arc<dyn TaskStorage> = Arc::new(RedisTaskStorage::new(
@@ -135,9 +152,17 @@ async fn main() -> std::io::Result<()> {
             .expect("Error connecting to Redis"),
     ));
 
-    let file_storage: Arc<dyn FileStorage> = Arc::new(FilesystemStorage::new("./mnt/main"));
+    let file_storage: Arc<dyn FileStorage> = match config.file_storage.storage_kind {
+        StorageKind::Filesystem => Arc::new(FilesystemStorage::new(config.file_storage.filesystem.clone().unwrap().mount_dir)),
+        StorageKind::S3 => Arc::new(S3Storage::new(S3::new(s3_client.clone().unwrap(), config.file_storage.s3.clone().unwrap().bucket_name))),
+        StorageKind::Redis => panic!("Redis storage for files is not supported yet"),
+    };
 
-    let cache_storage: Arc<dyn FileStorage> = Arc::new(FilesystemStorage::new("./mnt/cache"));
+    let cache_storage: Arc<dyn FileStorage> = match config.cache_storage.storage_kind {
+        StorageKind::Filesystem => Arc::new(FilesystemStorage::new(config.cache_storage.filesystem.clone().unwrap().mount_dir)),
+        StorageKind::S3 => Arc::new(S3Storage::new(S3::new(s3_client.clone().unwrap(), config.cache_storage.s3.clone().unwrap().bucket_name))),
+        StorageKind::Redis => panic!("Redis storage for cache is not supported yet"),
+    };
 
     let clear_cache_task: Arc<dyn TaskExecutor> = Arc::new(handler::CacheHandler::new(
         cache_storage.clone(),
