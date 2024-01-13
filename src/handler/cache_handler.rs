@@ -58,12 +58,12 @@ impl TaskExecutor for CacheHandler {
                 .collect();
 
             for path in derived_media_paths {
-                self.cache_storage.delete(path.as_str()?)?;
+                self.cache_storage.delete(path.as_str())?;
                 metadata.remove_derived_media(&path);
             }
 
             self.metadata_storage
-                .save(metadata.path.as_str()?, metadata.clone())?;
+                .save(metadata.path.as_str(), metadata.clone())?;
         }
 
         Ok(task)

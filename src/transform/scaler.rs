@@ -63,7 +63,6 @@ impl Scaler {
                 }
             }
             CropStrategy::ForcedCrop => {}
-            _ => return Err("No valid crop strategy found".into()),
         }
 
         let encoder: Encoder = Encoder::from_image(&img)?;

@@ -50,7 +50,7 @@ impl PipelineStepFactory for WatermarkerFactory {
 
         let overlay_sinker: OverlaySinkerFunc =
             Box::new(move || {
-                let bytes = file_storage.download(path.as_str()?)?;
+                let bytes = file_storage.download(path.as_str())?;
                 match bytes {
                     Some(bytes) => Ok(bytes),
                     None => Err("Failed to download file".into()),

@@ -3,6 +3,7 @@ pub mod pipeline_steps_factory;
 pub mod scaler_factory;
 pub mod upload_media_context;
 pub mod watermarker_factory;
+pub mod colorizer_factory;
 
 pub use pipeline_step_factory_trait::PipelineStepFactory;
 pub use pipeline_steps_factory::PipelineStepsFactory;

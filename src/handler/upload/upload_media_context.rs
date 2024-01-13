@@ -1,4 +1,5 @@
 use std::error::Error;
+use futures::executor::block_on;
 
 use crate::{
     extractor::ExifExtractor,
@@ -8,6 +9,7 @@ use crate::{
         PathGenerator, Scaler, TransformationDescriptorChain, Watermarker, WebpConverter,
     },
 };
+use crate::transform::Colorizer;
 
 #[derive(Default, Clone)]
 pub struct UploadMediaContext {

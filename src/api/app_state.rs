@@ -1,12 +1,10 @@
 use std::sync::Arc;
+use crate::apikey::ApiKeyStorage;
+use crate::config::Config;
+use crate::handler::{CacheHandler, MediaHandler};
+use crate::scheduler::TaskScheduler;
+use crate::transform::{NamedTransformationStorage, TransformationTemplateRegistry};
 
-use crate::{
-    apikey::ApiKeyStorage,
-    config::Config,
-    handler::{CacheHandler, MediaHandler},
-    scheduler::TaskScheduler,
-    transform::{NamedTransformationStorage, TransformationTemplateRegistry},
-};
 
 pub struct AppState {
     pub apikey_storage: Arc<dyn ApiKeyStorage>,

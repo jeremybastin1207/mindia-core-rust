@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::error::Error;
 use std::sync::{Arc, Mutex};
+use crate::handler::upload::colorizer_factory::ColorizerFactory;
 
 use super::{PipelineStepFactory, ScalerFactory, UploadMediaContext, WatermarkerFactory};
 use crate::pipeline::PipelineStep;
@@ -12,7 +13,9 @@ pub struct PipelineStepsFactory {
 }
 
 impl PipelineStepsFactory {
-    pub fn new(file_storage: Arc<dyn FileStorage>) -> Self {
+    pub fn new(
+        file_storage: Arc<dyn FileStorage>,
+    ) -> Self {
         let factories: Arc<Mutex<HashMap<TransformationName, Box<dyn PipelineStepFactory>>>> =
             Arc::new(Mutex::new(HashMap::new()));
 
@@ -20,10 +23,13 @@ impl PipelineStepsFactory {
             TransformationName::Scale,
             Box::new(ScalerFactory::default()),
         );
-
         factories.lock().unwrap().insert(
             TransformationName::Watermark,
-            Box::new(WatermarkerFactory::new(file_storage)),
+            Box::new(WatermarkerFactory::new(file_storage.clone())),
+        );
+        factories.lock().unwrap().insert(
+            TransformationName::Colorize,
+            Box::new(ColorizerFactory::new(file_storage)),
         );
 
         Self { factories }

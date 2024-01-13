@@ -6,11 +6,13 @@ use log4rs::append::console::ConsoleAppender;
 use log4rs::Config;
 use log4rs::config::{Appender, Root};
 use log::LevelFilter;
-use opentelemetry::global;
-use opentelemetry::sdk::trace::TracerProvider;
-use opentelemetry::sdk::propagation::TraceContextPropagator;
-use opentelemetry_otlp::{ExportConfig, SpanExporter, TonicConfig};
-use tonic::transport::Channel;
+use crate::api::run_server;
+use crate::apikey::{ApiKeyStorage, RedisApiKeyStorage};
+use crate::config::{ConfigLoader, StorageKind};
+use crate::metadata::{MetadataStorage, RedisMetadataStorage};
+use crate::scheduler::{RedisTaskStorage, TaskStorage};
+use crate::storage::{FileStorage, FilesystemStorage};
+use crate::transform::{NamedTransformationStorage, RedisNamedTransformationStorage};
 
 extern crate cfg_if;
 extern crate exif;
@@ -30,25 +32,17 @@ mod transform;
 mod types;
 mod utils;
 
-use crate::{
-    api::run_server,
-    apikey::{ApiKeyStorage, RedisApiKeyStorage},
-    config::{ConfigLoader, StorageKind},
-    metadata::{MetadataStorage, RedisMetadataStorage},
-    scheduler::{RedisTaskStorage, TaskStorage},
-    storage::{FileStorage, FilesystemStorage},
-    transform::{NamedTransformationStorage, RedisNamedTransformationStorage},
-};
+
 
 fn init_tracer() {
-    let otlp_collector_url = "https://otlp-gateway-prod-eu-west-0.grafana.net/otlp";
+/*    let otlp_collector_url = "https://otlp-gateway-prod-eu-west-0.grafana.net/otlp";
 
     let export_config = ExportConfig {
         endpoint: otlp_collector_url.to_string(),
         ..Default::default()
     };
 
-    match  SpanExporter::new_tonic(export_config, TonicConfig::default())  {
+    match SpanExporter::new_tonic(export_config, TonicConfig::default())  {
         Ok(exporter) => {
             let provider = TracerProvider::builder()
                 .with_simple_exporter(exporter)
@@ -57,7 +51,7 @@ fn init_tracer() {
             global::set_text_map_propagator(TraceContextPropagator::new());
         },
         Err(why) => panic!("{:?}", why)
-    }
+    }*/
 }
 
 #[actix_web::main]
@@ -150,7 +144,9 @@ async fn main() -> std::io::Result<()> {
         metadata_storage.clone(),
     ));
 
-    let task_executors = vec![(scheduler::TaskKind::ClearCache, clear_cache_task.clone())]
+    let task_executors = vec![
+        (scheduler::TaskKind::ClearCache, clear_cache_task.clone())
+    ]
         .into_iter()
         .collect();
     let task_scheduler = run_scheduler(task_storage, task_executors);

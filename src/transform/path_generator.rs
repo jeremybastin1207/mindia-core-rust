@@ -1,4 +1,5 @@
 use std::error::Error;
+use aws_sdk_s3::primitives::event_stream::HeaderValue::Uuid;
 
 use super::TransformationDescriptorChain;
 use crate::media::Path;
@@ -19,7 +20,7 @@ impl PathGenerator {
                 .collect::<Vec<_>>()
                 .join(",");
 
-            path = path.derive_with_suffix(&suffix)?;
+            path = path.add_suffix_to_filename(&suffix)?;
         }
 
         Ok(path)

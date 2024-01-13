@@ -8,6 +8,7 @@ use super::TransformationTemplate;
 pub enum TransformationName {
     Scale,
     Watermark,
+    Colorize,
     Unset,
 }
 
@@ -16,6 +17,7 @@ impl TransformationName {
         match *self {
             TransformationName::Scale => "c_scale",
             TransformationName::Watermark => "c_watermark",
+            TransformationName::Colorize => "c_colorize",
             TransformationName::Unset => "",
         }
     }
@@ -73,6 +75,16 @@ impl TransformationTemplateRegistry {
                     "The height to scale the watermark to".to_string(),
                 )
                 .with_arg("f".to_string(), "The path to the watermark".to_string()),
+        );
+        transformation_strings.insert(
+            TransformationName::Colorize.as_str().to_string(),
+            TransformationTemplate::new()
+                .with_name(TransformationName::Colorize)
+                .with_description("Colorize the image".to_string())
+                .with_arg(
+                    "c".to_string(),
+                    "Make a persistent copy of the original image".to_string(),
+            )
         );
     }
 

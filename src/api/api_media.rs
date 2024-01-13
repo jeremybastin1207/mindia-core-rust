@@ -12,6 +12,7 @@ use opentelemetry::trace::{Span, SpanKind, Status, Tracer};
 use super::{AppState, PathExtractor, TransformationChainExtractor};
 use crate::extractor::TransformationsExtractor;
 use crate::media::Path;
+use crate::media::path::generate_path;
 
 #[get("/media/{path}")]
 pub async fn read_media(
@@ -118,18 +119,17 @@ pub async fn upload(
         return Err("Invalid transformations JSON".into());
     };
 
-    let path_str = format!("/{}/{}", path, filename);
-    let path = Path::generate(&path_str)?;
+    let path = generate_path(format!("{}/{}", path, filename).as_str())?;
 
     let metadata = data
         .media_handler
         .upload(path, transformation_chains, filedata).await?;
 
-    let json_response = serde_json::to_string(&metadata)?;
+    let json_response = serde_json::to_string_pretty(&metadata)?;
 
     span.set_status(Status::Ok);
 
-    Ok(HttpResponse::Ok().body(json_response))
+    Ok(HttpResponse::Ok().content_type("application/json").body(json_response))
 }
 
 #[derive(Deserialize)]
