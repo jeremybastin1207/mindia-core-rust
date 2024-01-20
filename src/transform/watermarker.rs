@@ -3,35 +3,47 @@ use image::{EncodableLayout, GenericImage, GenericImageView, ImageBuffer, Rgba};
 use imageproc::{drawing::draw_filled_rect_mut, rect::Rect};
 use std::{error::Error, str::FromStr};
 use std::sync::Arc;
-use webp::{Encoder, WebPMemory};
+use webp::{Encoder};
 use crate::media::Path;
 use crate::storage::FileStorage;
+use crate::transform::{CropStrategy, Scaler};
+use crate::transform::TransformationName::Scale;
+use crate::types::Size;
 
 
 pub struct Watermarker {
     anchor: Anchor,
     padding: u32,
+    width: u32,
+    height: u32,
     overlay_path: Path,
     file_storage: Arc<dyn FileStorage>,
 }
 
 impl Watermarker {
-    pub fn new(anchor: Anchor, padding: u32, overlay_path: Path, file_storage: Arc<dyn FileStorage>) -> Self {
+    pub fn new(anchor: Anchor, padding: u32, width: u32, height: u32, overlay_path: Path, file_storage: Arc<dyn FileStorage>) -> Self {
         Self {
             anchor,
             padding,
+            width,
+            height,
             overlay_path,
             file_storage,
         }
     }
 
     pub async fn transform(&self, bytes: BytesMut) -> Result<BytesMut, Box<dyn Error>> {
-        let mut dst = BytesMut::new();
-
-        let mut img = image::load_from_memory(&bytes)?;
         match self.file_storage.download(self.overlay_path.as_str()).await? {
             Some(overlay_bytes) => {
-                let overlay = image::load_from_memory(&overlay_bytes)?;
+                let mut img = image::load_from_memory(&bytes)?;
+
+                let mut overlay_bytes_mut = BytesMut::new();
+                overlay_bytes_mut.extend_from_slice(&overlay_bytes);
+
+                let scaler = Scaler::new(Size::new(self.width, self.height), CropStrategy::ForcedCrop, Rgba([0, 0, 0, 0]));
+                let scaled_overlay = scaler.transform(self.overlay_path.clone(), overlay_bytes_mut)?;
+
+                let mut overlay = image::load_from_memory(&scaled_overlay)?;
 
                 let (img_w, img_h) = img.dimensions();
                 let (overlay_w, overlay_h) = overlay.dimensions();
@@ -43,31 +55,27 @@ impl Watermarker {
                     self.padding,
                 );
 
-                let mut overlay_buffer = ImageBuffer::new(img_w, img_h);
+                let mut overlay_buffer = ImageBuffer::new(overlay_w, overlay_h);
                 draw_filled_rect_mut(
                     &mut overlay_buffer,
                     Rect::at(0, 0).of_size(overlay_w, overlay_h),
                     Rgba([0, 0, 0, 0]),
                 );
 
-               overlay_buffer.copy_from(&overlay, x, y)?;
+                overlay_buffer.copy_from(&overlay, 0, 0)?;
 
-               img.copy_from(&overlay_buffer, 0, 0)?;
+                img.copy_from(&overlay_buffer, x, y)?;
 
-                let encoder: Encoder = Encoder::from_image(&img)?;
-                let encoded_webp: WebPMemory = encoder.encode(65f32);
+                let encoder = Encoder::from_image(&img)?;
+                let encoded_webp = encoder.encode(65f32);
 
+                let mut dst = BytesMut::new();
                 dst.extend_from_slice(&encoded_webp.as_bytes());
+
+                Ok(dst)
             },
-            None => {
-                let encoder: Encoder = Encoder::from_image(&img)?;
-                let encoded_webp: WebPMemory = encoder.encode(65f32);
-
-                dst.extend_from_slice(&encoded_webp.as_bytes());
-            }
+            None => Ok(bytes)
         }
-
-        Ok(dst)
     }
 }
 

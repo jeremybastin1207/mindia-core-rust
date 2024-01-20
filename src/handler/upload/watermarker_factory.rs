@@ -1,3 +1,13 @@
+use std::error::Error;
+use std::str::FromStr;
+use std::sync::Arc;
+use crate::handler::upload::pipeline_step_factory_trait::PipelineStepFactory;
+use crate::handler::upload::UploadMediaContext;
+use crate::media::Path;
+use crate::pipeline::PipelineStep;
+use crate::storage::FileStorage;
+use crate::transform::{TransformationDescriptor, Watermarker};
+use crate::transform::watermarker::Anchor;
 
 pub struct WatermarkerFactory {
     pub file_storage: Arc<dyn FileStorage>,
@@ -16,7 +26,7 @@ impl PipelineStepFactory for WatermarkerFactory {
     ) -> Result<Box<dyn PipelineStep<UploadMediaContext>>, Box<dyn Error>> {
         let path = transformation_descriptor
             .arg_values
-            .get("t")
+            .get("f")
             .ok_or("Key 'path' not found")?
             .parse::<String>()
             .map_err(|_| "Failed to parse 't' value to String")?;
@@ -35,11 +45,25 @@ impl PipelineStepFactory for WatermarkerFactory {
             .parse::<String>()
             .map_err(|_| "Failed to parse 'a' value to String")?;
 
+        let height = transformation_descriptor
+            .arg_values
+            .get("h")
+            .ok_or("Key 'h' not found")?
+            .parse::<u32>()
+            .map_err(|_| "Failed to parse 'h' value to u32")?;
+
+        let width = transformation_descriptor
+            .arg_values
+            .get("w")
+            .ok_or("Key 'w' not found")?
+            .parse::<u32>()
+            .map_err(|_| "Failed to parse 'w' value to u32")?;
+
         let path = Path::new(path.as_str())?;
         let anchor = Anchor::from_str(&anchor)?;
         let file_storage = Arc::clone(&self.file_storage);
 
 
-        Ok(Box::new(Watermarker::new(anchor, padding, path, file_storage)))
+        Ok(Box::new(Watermarker::new(anchor, padding, height, width, path, file_storage)))
     }
 }

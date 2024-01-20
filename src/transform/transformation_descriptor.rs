@@ -32,7 +32,7 @@ impl TransformationDescriptor {
         for key in self.transformation_template.args.keys() {
             let value = self.arg_values.get(key);
             match value {
-                Some(v) => s.push_str(&format!(",{}-{}", key, v)),
+                Some(v) => s.push_str(&format!(",{}-{}", key, v.replace("/", "%"))),
                 None => s.push_str(&format!(",{}-{}", key, "unset")),
             }
         }

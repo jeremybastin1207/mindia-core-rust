@@ -92,7 +92,7 @@ impl TransformationsExtractor {
                             let arg_parts = arg.split(VALUE_SEPARATOR).collect::<Vec<&str>>();
 
                             let key = arg_parts[0].to_string();
-                            let value = arg_parts[1].to_string();
+                            let value = arg_parts[1].replace("%", "/").to_string();
 
                             transformation.add_arg(key, value);
                         }

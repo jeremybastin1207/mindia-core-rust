@@ -13,6 +13,7 @@ use super::{AppState, PathExtractor, TransformationChainExtractor};
 use crate::extractor::TransformationsExtractor;
 use crate::media::Path;
 use crate::media::path::generate_path;
+use crate::transform::TransformationDescriptorChain;
 
 #[get("/media/{path}")]
 pub async fn read_media(
@@ -79,9 +80,9 @@ pub async fn upload(
     let named_transformation_storage = data.named_transformation_storage.clone();
     let transformation_template_registry = data.transformation_template_registry.clone();
 
-    let mut transformations_str = String::new();
     let mut filename = String::new();
     let mut filedata = BytesMut::new();
+    let mut transformation_chains: Vec<TransformationDescriptorChain> = Vec::new();
 
     while let Some(item) = payload.next().await {
         let mut field = item?;
@@ -96,28 +97,30 @@ pub async fn upload(
                 filedata.extend_from_slice(&data);
             }
         } else if field_name == "transformations" {
+            let mut transformations_str = String::new();
+
             while let Some(chunk) = field.next().await {
                 let data = chunk?;
                 transformations_str.push_str(std::str::from_utf8(&data)?);
             }
+
+            let transformations_json: Value = serde_json::from_str(&transformations_str)?;
+
+            transformation_chains = if let Some(array) = transformations_json.as_array() {
+                let str_array: Vec<&str> = array
+                    .iter()
+                    .map(|v| v.as_str().unwrap_or_default())
+                    .collect();
+                TransformationsExtractor::new(
+                    named_transformation_storage.clone(),
+                    transformation_template_registry.clone(),
+                )
+                    .extract(str_array)?
+            } else {
+                return Err("Invalid transformations JSON".into());
+            };
         }
     }
-
-    let transformations_json: Value = serde_json::from_str(&transformations_str)?;
-
-    let transformation_chains = if let Some(array) = transformations_json.as_array() {
-        let str_array: Vec<&str> = array
-            .iter()
-            .map(|v| v.as_str().unwrap_or_default())
-            .collect();
-        TransformationsExtractor::new(
-            named_transformation_storage,
-            transformation_template_registry,
-        )
-        .extract(str_array)?
-    } else {
-        return Err("Invalid transformations JSON".into());
-    };
 
     let path = generate_path(format!("{}/{}", path, filename).as_str())?;
 

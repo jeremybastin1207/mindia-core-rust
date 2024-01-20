@@ -69,16 +69,11 @@ impl ApiKeyStorage for RedisApiKeyStorage {
     }
 
     fn save(&self, apikey: ApiKey) -> Result<(), Box<dyn Error>> {
-        let name = apikey.name.clone();
         let apikey_json = serde_json::to_string(&apikey)?;
-
-        let path = format!(".{}", name.replace(" ", "_"));
-
-        println!("{}", path);
 
         redis::cmd("JSON.SET")
             .arg(API_KEYS_KEY)
-            .arg(&path)
+            .arg(format!(".{}", apikey.name.replace(" ", "_")))
             .arg(apikey_json)
             .query(&mut self.conn.lock().unwrap())?;
 

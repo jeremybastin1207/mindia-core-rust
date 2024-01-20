@@ -14,20 +14,22 @@ impl ExifExtractor {
         mut metadata: Metadata,
         body: BytesMut,
     ) -> Result<Metadata, Box<dyn Error>> {
-        let reader = exif::Reader::new();
-        let exif = reader.read_from_container(&mut Cursor::new(&body))?;
 
-        let mut fields_map = HashMap::new();
+        match exif::Reader::new().read_from_container(&mut Cursor::new(&body)) {
+            Ok(exif) => {
+                let mut fields_map = HashMap::new();
+                for field in exif.fields() {
+                    fields_map.insert(
+                        field.tag.to_string(),
+                        field.display_value().with_unit(&exif).to_string(),
+                    );
+                }
 
-        for field in exif.fields() {
-            fields_map.insert(
-                field.tag.to_string(),
-                field.display_value().with_unit(&exif).to_string(),
-            );
-        }
-
-        for (key, value) in fields_map {
-            metadata.embedded_metadata.insert(key, value);
+                for (key, value) in fields_map {
+                    metadata.embedded_metadata.insert(key, value);
+                }
+            },
+            Err(_) => {},
         }
 
         Ok(metadata)
