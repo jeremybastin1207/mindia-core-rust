@@ -47,7 +47,7 @@ impl TaskScheduler {
                     let task_storage = self.task_storage.clone();
 
                     actix_web::rt::spawn(async move {
-                        match task_executor.run(task) {
+                        match task_executor.run(task).await {
                             Ok(result) => {
                                 if let Err(e) = task_storage.push(result) {
                                     println!("Failed to push task result: {}", e);

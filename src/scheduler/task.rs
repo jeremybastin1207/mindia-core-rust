@@ -1,9 +1,11 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
+use async_trait::async_trait;
 
+#[async_trait]
 pub trait TaskExecutor: Send + Sync {
-    fn run(&self, task: Task) -> Result<Task, Box<dyn Error>>;
+    async fn run(&self, task: Task) -> Result<Task, Box<dyn Error>>;
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

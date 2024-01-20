@@ -1,15 +1,11 @@
 use bytes::{Bytes, BytesMut};
 use std::{error::Error, sync::Arc};
-
-use super::{PipelineStepsFactory, UploadMediaContext};
-use crate::{
-    extractor::ExifExtractor,
-    media::{MediaGroupHandle, Path},
-    metadata::{Metadata, MetadataStorage},
-    pipeline::{Pipeline, PipelineExecutor, Sinker, Source},
-    storage::FileStorage,
-    transform::{PathGenerator, TransformationDescriptorChain, WebpConverter},
-};
+use crate::handler::upload::{PipelineStepsFactory, UploadMediaContext};
+use crate::media::{MediaGroupHandle, MediaHandle, Path};
+use crate::metadata::{Metadata, MetadataStorage};
+use crate::pipeline::{ PipelineContext,  PipelineStep};
+use crate::storage::FileStorage;
+use crate::transform::{PathGenerator, TransformationDescriptorChain, WebpConverter};
 
 pub struct MediaHandler {
     file_storage: Arc<dyn FileStorage>,
@@ -47,77 +43,53 @@ impl MediaHandler {
         let file_storage = self.file_storage.clone();
         let metadata_storage = self.metadata_storage.clone();
 
-        let output = PipelineExecutor::new().execute::<UploadMediaContext>(Pipeline::<
-            UploadMediaContext,
-        >::new(
-            Source::new(Box::new(move |mut ctx| {
-                ctx.attributes.media_handle.metadata.path = path.clone();
-                ctx.attributes.media_handle.body = body.clone();
+        let transforms: Vec<Box<dyn PipelineStep<UploadMediaContext>>> = vec![
+            // Box::new(ExifExtractor::default()),
+            Box::new(WebpConverter::default()),
+            Box::new(PathGenerator::default())
+        ];
 
-                Ok(ctx)
-            })),
-            Sinker::new(Box::new(move |ctx| {
-                file_storage.upload(
-                    ctx.attributes.media_handle.metadata.path.as_str(),
-                    ctx.attributes.media_handle.body.clone().into(),
-                )?;
+        // foreach transforms as Pipeline step and execute them
+        let mut context = PipelineContext::<UploadMediaContext>::new(UploadMediaContext::default());
+        context.attributes.media_handle = MediaHandle::new(body.clone(), Metadata::new(path.clone()));
 
-                metadata_storage.save(
-                    ctx.attributes.media_handle.metadata.path.as_str(),
-                    ctx.attributes.media_handle.metadata.clone(),
-                )?;
+        for step in transforms {
+            context = step.execute(context).await?;
+        }
 
-                Ok(())
-            })),
-            vec![
-                // Box::new(ExifExtractor::default()),
-                Box::new(WebpConverter::default()),
-                Box::new(PathGenerator::default()),
-            ],
-        ))?;
+        file_storage.upload(
+            context.attributes.media_handle.metadata.path.as_str(),
+            context.attributes.media_handle.body.clone().into(),
+        ).await?;
+
+        metadata_storage.save(
+            context.attributes.media_handle.metadata.path.as_str(),
+            context.attributes.media_handle.metadata.clone(),
+        )?;
 
         let mut media_group_handle =
-            MediaGroupHandle::new(output.attributes.media_handle.clone(), vec![]);
+            MediaGroupHandle::new(context.attributes.media_handle.clone(), vec![]);
 
         if !transformation_chains.is_empty() {
-            let metadata_storage = self.metadata_storage.clone();
-
             for transformation_chain in transformation_chains {
-                let cache_storage = self.cache_storage.clone();
-                let output = output.clone();
-
                 let mut transformation_steps = self
                     .pipeline_steps_factory
                     .create(transformation_chain.clone())?;
                 transformation_steps.push(Box::new(PathGenerator::default()));
 
-                let output = PipelineExecutor::new().execute::<UploadMediaContext>(Pipeline::<
-                    UploadMediaContext,
-                >::new(
-                    Source::new(Box::new(move |mut ctx| {
-                        ctx.attributes.media_handle.metadata.path =
-                            output.attributes.media_handle.metadata.path.clone();
-                        ctx.attributes.media_handle.body =
-                            output.attributes.media_handle.body.clone();
-                        ctx
-                            .attributes
-                            .transformations
-                            .set(transformation_chain.get_transformation_descriptors().clone());
+                let mut sub_context = context.clone();
+                sub_context.attributes.transformations = transformation_chain;
 
-                        Ok(ctx.clone())
-                    })),
-                    Sinker::new(Box::new(move |ctx| {
-                        cache_storage.upload(
-                            ctx.attributes.media_handle.metadata.path.as_str(),
-                            ctx.attributes.media_handle.body.clone().into(),
-                        )?;
+                for step in transformation_steps {
+                    sub_context = step.execute(sub_context).await?;
+                }
 
-                        Ok(())
-                    })),
-                    transformation_steps,
-                ))?;
+                 self.cache_storage.upload(
+                     sub_context.attributes.media_handle.metadata.path.as_str(),
+                     sub_context.attributes.media_handle.body.clone().into(),
+                 ).await?;
 
-                media_group_handle.add_derived_media(output.attributes.media_handle);
+                media_group_handle.add_derived_media(sub_context.attributes.media_handle);
             }
 
             metadata_storage.save(
@@ -135,77 +107,46 @@ impl MediaHandler {
         transformation_chain: Option<TransformationDescriptorChain>,
     ) -> Result<Option<Bytes>, Box<dyn Error>> {
         if transformation_chain.is_none() {
-            let bytes = self.file_storage.download(path.as_str())?;
-            return Ok(bytes);
+            let body = self.file_storage.download(path.as_str()).await?;
+            return Ok(body);
         }
 
         let transformation_chain = transformation_chain.unwrap();
 
         let derived_path =
-            PathGenerator::default().transform(path.clone(), transformation_chain.clone())?;
+            PathGenerator::default().transform(&path, &transformation_chain)?;
 
-        let file_bytes = self.cache_storage.download(derived_path.as_str())?;
-
-        match file_bytes {
-            Some(file_bytes) => Ok(Some(file_bytes)),
+        match self.cache_storage.download(derived_path.as_str()).await? {
+            Some(body) => Ok(Some(body)),
             None => {
                 let mut transformation_steps = self
                     .pipeline_steps_factory
                     .create(transformation_chain.clone())?;
                 transformation_steps.push(Box::new(PathGenerator::default()));
 
-                let mut metadata = match self.metadata_storage.get_by_path(path.as_str())? {
-                    Some(metadata) => metadata,
-                    None => {
-                        return Err(Box::new(std::io::Error::new(
-                            std::io::ErrorKind::NotFound,
-                            "Metadata not found",
-                        )));
-                    }
-                };
+                match self.file_storage.download(path.as_str()).await? {
+                    None => Ok(None),
+                    Some(body) => {
+                        let mut context = PipelineContext::<UploadMediaContext>::new(UploadMediaContext::default());
+                        context.attributes.media_handle = MediaHandle::new(BytesMut::from(&body[..]), Metadata::new(path.clone()));
 
-                let file_storage = self.file_storage.clone();
-                let cache_storage = self.cache_storage.clone();
+                        for step in transformation_steps {
+                            context = step.execute(context).await?;
+                        }
 
-                let output = PipelineExecutor::new().execute::<UploadMediaContext>(Pipeline::<
-                    UploadMediaContext,
-                >::new(
-                    Source::new(Box::new(move |mut ctx| {
-                         let file_bytes = file_storage.download(path.as_str())?;
+                        self.cache_storage.upload(
+                            context.attributes.media_handle.metadata.path.as_str(),
+                            context.attributes.media_handle.body.clone().into(),
+                        ).await?;
 
-                         if let Some(file_bytes) = file_bytes {
-                            ctx.attributes.media_handle.body = BytesMut::from(&file_bytes[..]);
-                         } else {
-                            return Err(Box::new(std::io::Error::new(
-                                std::io::ErrorKind::NotFound,
-                                "File not found",
-                            )));
-                         }
-
-                        ctx.attributes.media_handle.metadata.path = path.clone();
-                        ctx.attributes
-                            .transformations
-                            .set(transformation_chain.get_transformation_descriptors().clone());
-
-                        Ok(ctx)
-                    })),
-                    Sinker::new(Box::new(move |ctx| {
-                        cache_storage.upload(
-                            ctx.attributes.media_handle.metadata.path.as_str(),
-                            ctx.attributes.media_handle.body.clone().into(),
+                        self.metadata_storage.save(
+                            context.attributes.media_handle.metadata.path.as_str(),
+                            context.attributes.media_handle.metadata.clone()
                         )?;
 
-                        Ok(())
-                    })),
-                    transformation_steps,
-                ))?;
-
-                metadata.append_derived_media(output.attributes.media_handle.metadata.clone());
-
-                self.metadata_storage
-                    .save(metadata.path.as_str(), metadata.clone())?;
-
-                Ok(Some(output.attributes.media_handle.body.freeze()))
+                        Ok(Some(context.attributes.media_handle.body.freeze()))
+                    }
+                }
             }
         }
     }
@@ -228,14 +169,14 @@ impl MediaHandler {
         let mut new_derived_medias: Vec<Metadata> = Vec::new();
 
         for mut derived_media in metadata.derived_medias {
-            cache_storage.move_(derived_media.path.as_str(), dst.as_str())?;
+            cache_storage.move_(derived_media.path.as_str(), dst.as_str()).await?;
             derived_media.path = dst.clone().into();
             new_derived_medias.push(derived_media);
         }
 
         metadata.derived_medias = new_derived_medias;
 
-        file_storage.move_(src.as_str(), dst.as_str())?;
+        file_storage.move_(src.as_str(), dst.as_str()).await?;
         metadata.path = dst.clone().into();
 
         metadata_storage.save(dst.as_str(), metadata.clone())?;
@@ -261,14 +202,14 @@ impl MediaHandler {
         let mut new_derived_medias: Vec<Metadata> = Vec::new();
 
         for mut derived_media in metadata.derived_medias {
-            cache_storage.copy(derived_media.path.as_str(), dst.as_str())?;
+            cache_storage.copy(derived_media.path.as_str(), dst.as_str()).await?;
             derived_media.path = dst.clone().into();
             new_derived_medias.push(derived_media);
         }
 
         metadata.derived_medias = new_derived_medias;
 
-        file_storage.copy(src.as_str(), dst.as_str())?;
+        file_storage.copy(src.as_str(), dst.as_str()).await?;
         metadata.path = dst.clone().into();
 
         metadata_storage.save(dst.as_str(), metadata.clone())?;
@@ -281,8 +222,8 @@ impl MediaHandler {
         let cache_storage = self.cache_storage.clone();
         let metadata_storage = self.metadata_storage.clone();
 
-        file_storage.delete(path.as_str())?;
-        cache_storage.delete(path.as_str())?;
+        file_storage.delete(path.as_str()).await?;
+        cache_storage.delete(path.as_str()).await?;
         metadata_storage.delete(path.as_str())?;
 
         Ok(())

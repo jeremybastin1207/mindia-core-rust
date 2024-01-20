@@ -1,6 +1,5 @@
 use actix_web::{delete, web, HttpResponse, Responder};
 use chrono::Utc;
-
 use crate::api::app_state::AppState;
 use crate::scheduler::{Details, Task, TaskKind};
 

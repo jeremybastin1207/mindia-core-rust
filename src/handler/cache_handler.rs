@@ -2,12 +2,12 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::sync::Arc;
+use async_trait::async_trait;
+use crate::metadata::MetadataStorage;
+use crate::scheduler::{Details, Task, TaskExecutor, TaskStatus};
+// use crate::scheduler::{Details, Task, TaskExecutor, TaskStatus};
+use crate::storage::FileStorage;
 
-use crate::{
-    metadata::MetadataStorage,
-    scheduler::{Details, Task, TaskExecutor, TaskStatus},
-    storage::FileStorage,
-};
 
 const METADATA_LIMIT: u32 = 100;
 
@@ -33,8 +33,9 @@ impl CacheHandler {
     }
 }
 
+#[async_trait]
 impl TaskExecutor for CacheHandler {
-    fn run(&self, mut task: Task) -> Result<Task, Box<dyn Error>> {
+    async fn run(&self, mut task: Task) -> Result<Task, Box<dyn Error>> {
         println!("Running task: {:?}", task);
 
         let before_date = match task.details {
@@ -58,7 +59,7 @@ impl TaskExecutor for CacheHandler {
                 .collect();
 
             for path in derived_media_paths {
-                self.cache_storage.delete(path.as_str())?;
+                self.cache_storage.delete(path.as_str()).await?;
                 metadata.remove_derived_media(&path);
             }
 

@@ -11,7 +11,7 @@ pub struct MediaHandle {
 }
 
 impl MediaHandle {
-    pub fn new(body: BytesMut, metadata: Metadata) -> Self {
+pub fn new(body: BytesMut, metadata: Metadata) -> Self {
         Self { body, metadata }
     }
 }

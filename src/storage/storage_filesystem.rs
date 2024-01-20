@@ -2,6 +2,7 @@ use bytes::Bytes;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
+use async_trait::async_trait;
 
 use crate::storage::storage_trait::FileStorage;
 
@@ -17,8 +18,9 @@ impl FilesystemStorage {
     }
 }
 
+#[async_trait]
 impl FileStorage for FilesystemStorage {
-    fn upload(&self, path: &str, data: Bytes) -> Result<(), Box<dyn Error>> {
+    async fn upload(&self, path: &str, data: Bytes) -> Result<(), Box<dyn Error>> {
         let path = path.strip_prefix("/").unwrap_or(path);
         let full_path = Path::new(&self.mount_dir).join(path);
 
@@ -31,7 +33,7 @@ impl FileStorage for FilesystemStorage {
         Ok(())
     }
 
-    fn download(&self, path: &str) -> Result<Option<Bytes>, Box<dyn Error>> {
+    async fn download(&self, path: &str) -> Result<Option<Bytes>, Box<dyn Error>> {
         let path = path.strip_prefix("/").unwrap_or(path);
         let full_path = Path::new(&self.mount_dir).join(path);
 
@@ -42,7 +44,7 @@ impl FileStorage for FilesystemStorage {
         }
     }
 
-    fn move_(&self, src: &str, dst: &str) -> Result<(), Box<dyn Error>> {
+    async fn move_(&self, src: &str, dst: &str) -> Result<(), Box<dyn Error>> {
         let src = src.strip_prefix("/").unwrap_or(src);
         let dst = dst.strip_prefix("/").unwrap_or(dst);
         let src_full_path = Path::new(&self.mount_dir).join(src);
@@ -53,7 +55,7 @@ impl FileStorage for FilesystemStorage {
         Ok(())
     }
 
-    fn copy(&self, src: &str, dst: &str) -> Result<(), Box<dyn Error>> {
+    async fn copy(&self, src: &str, dst: &str) -> Result<(), Box<dyn Error>> {
         let src = src.strip_prefix("/").unwrap_or(src);
         let dst = dst.strip_prefix("/").unwrap_or(dst);
         let src_full_path = Path::new(&self.mount_dir).join(src);
@@ -64,7 +66,7 @@ impl FileStorage for FilesystemStorage {
         Ok(())
     }
 
-    fn delete(&self, path: &str) -> Result<(), Box<dyn Error>> {
+    async fn delete(&self, path: &str) -> Result<(), Box<dyn Error>> {
         let path = path.strip_prefix("/").unwrap_or(path);
         let full_path = Path::new(&self.mount_dir).join(path);
 

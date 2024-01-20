@@ -3,11 +3,9 @@ use image::io::Reader as ImageReader;
 use image::{EncodableLayout, GenericImageView, ImageBuffer, Rgba};
 use std::{error::Error, io::Cursor};
 use webp::{Encoder, WebPMemory};
+use crate::media::Path;
+use crate::types::{Position, Size};
 
-use crate::{
-    media::Path,
-    types::{position::Position, size::Size},
-};
 
 #[derive(PartialEq)]
 pub enum CropStrategy {

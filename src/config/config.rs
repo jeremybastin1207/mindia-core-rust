@@ -1,13 +1,13 @@
 use serde::Deserialize;
 
-#[derive(Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct RedisAdapterConfig {
     pub host: String,
     pub port: u16,
     pub password: Option<String>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct S3AdapterConfig {
     pub access_key_id: String,
     pub secret_access_key: String,
@@ -15,35 +15,35 @@ pub struct S3AdapterConfig {
     pub region: String,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct FilesystemStorageConfig {
     pub mount_dir: String,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct S3StorageConfig {
     pub bucket_name: String,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ServerConfig {
     pub port: u16,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct AdapterConfig {
     pub redis: Option<RedisAdapterConfig>,
     pub s3: Option<S3AdapterConfig>,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct StorageConfig {
     pub storage_kind: StorageKind,
     pub filesystem: Option<FilesystemStorageConfig>,
     pub s3: Option<S3StorageConfig>,
 }
 
-#[derive(Clone, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum StorageKind {
     Filesystem,
@@ -51,22 +51,22 @@ pub enum StorageKind {
     S3,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ApiKeyConfig {
     pub storage_kind: StorageKind,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct NamedTransformationConfig {
     pub storage_kind: StorageKind,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct MetadataConfig {
     pub storage_kind: StorageKind,
 }
 
-#[derive(Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     #[serde(skip)]
     pub master_key: String,

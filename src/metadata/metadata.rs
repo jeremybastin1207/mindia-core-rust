@@ -17,6 +17,15 @@ pub struct Metadata {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
+impl Metadata {
+    pub fn new(path: Path) -> Self {
+        Self {
+            path,
+            ..Default::default()
+        }
+    }
+}
+
 impl Default for Metadata {
     fn default() -> Self {
         Self {

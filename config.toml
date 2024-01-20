@@ -6,6 +6,12 @@ host = "127.0.0.1"
 port = 6379
 password = ""
 
+[adapter.s3]
+access_key_id = "DO00KLJNKDTBKELP2ZBK"
+secret_access_key = "osGFNIiDRP5Il6QJ4D1Nv+zHXy4DpVdC+1gNcpBf3rA"
+endpoint = "ams3.digitaloceanspaces.com"
+region = "ams3"
+
 [file_storage]
 storage_kind = "filesystem"
 
@@ -13,10 +19,16 @@ storage_kind = "filesystem"
 storage_kind = "filesystem"
 
 [file_storage.filesystem]
-mount_dir = "./mnt"
+mount_dir = "./mnt/storage/"
 
 [cache_storage.filesystem]
-mount_dir = "./mnt"
+mount_dir = "./mnt/cache/"
+
+[file_storage.s3]
+bucket_name = "mindia-storage"
+
+[cache_storage.s3]
+bucket_name = "mindia-cache-storage"
 
 [apikey]
 storage_kind = "redis"

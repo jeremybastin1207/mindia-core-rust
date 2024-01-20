@@ -1,15 +1,13 @@
 use std::error::Error;
-use futures::executor::block_on;
-
+use async_trait::async_trait;
 use crate::{
     extractor::ExifExtractor,
     media::MediaHandle,
     pipeline::{PipelineContext, PipelineStep},
     transform::{
-        PathGenerator, Scaler, TransformationDescriptorChain, Watermarker, WebpConverter,
+        PathGenerator, Scaler, TransformationDescriptorChain, WebpConverter,
     },
 };
-use crate::transform::Colorizer;
 
 #[derive(Default, Clone)]
 pub struct UploadMediaContext {
@@ -17,8 +15,9 @@ pub struct UploadMediaContext {
     pub transformations: TransformationDescriptorChain,
 }
 
+#[async_trait]
 impl PipelineStep<UploadMediaContext> for ExifExtractor {
-    fn execute(
+    async fn execute(
         &self,
         mut ctx: PipelineContext<UploadMediaContext>,
     ) -> Result<PipelineContext<UploadMediaContext>, Box<dyn Error>> {
@@ -31,8 +30,9 @@ impl PipelineStep<UploadMediaContext> for ExifExtractor {
     }
 }
 
+#[async_trait]
 impl PipelineStep<UploadMediaContext> for WebpConverter {
-    fn execute(
+    async fn execute(
         &self,
         mut ctx: PipelineContext<UploadMediaContext>,
     ) -> Result<PipelineContext<UploadMediaContext>, Box<dyn Error>> {
@@ -48,8 +48,9 @@ impl PipelineStep<UploadMediaContext> for WebpConverter {
     }
 }
 
+#[async_trait]
 impl PipelineStep<UploadMediaContext> for Scaler {
-    fn execute(
+    async fn execute(
         &self,
         mut ctx: PipelineContext<UploadMediaContext>,
     ) -> Result<PipelineContext<UploadMediaContext>, Box<dyn Error>> {
@@ -64,27 +65,29 @@ impl PipelineStep<UploadMediaContext> for Scaler {
     }
 }
 
-impl PipelineStep<UploadMediaContext> for Watermarker {
-    fn execute(
-        &self,
-        mut ctx: PipelineContext<UploadMediaContext>,
-    ) -> Result<PipelineContext<UploadMediaContext>, Box<dyn Error>> {
-        let body = self.transform(ctx.attributes.media_handle.body.clone())?;
+// #[async_trait]
+// impl PipelineStep<UploadMediaContext> for Watermarker {
+//     async fn execute(
+//         &self,
+//         mut ctx: PipelineContext<UploadMediaContext>,
+//     ) -> Result<PipelineContext<UploadMediaContext>, Box<dyn Error>> {
+//         let body = self.transform(ctx.attributes.media_handle.body.clone())?;
+//
+//         ctx.attributes.media_handle.body = body;
+//
+//         Ok(ctx)
+//     }
+// }
 
-        ctx.attributes.media_handle.body = body;
-
-        Ok(ctx)
-    }
-}
-
+#[async_trait]
 impl PipelineStep<UploadMediaContext> for PathGenerator {
-    fn execute(
+    async fn execute(
         &self,
         mut ctx: PipelineContext<UploadMediaContext>,
     ) -> Result<PipelineContext<UploadMediaContext>, Box<dyn Error>> {
         let path = self.transform(
-            ctx.attributes.media_handle.metadata.path,
-            ctx.attributes.transformations.clone(),
+            &ctx.attributes.media_handle.metadata.path,
+            &ctx.attributes.transformations.clone(),
         )?;
 
         ctx.attributes.media_handle.metadata.path = path;

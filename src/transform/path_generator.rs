@@ -10,9 +10,11 @@ pub struct PathGenerator;
 impl PathGenerator {
     pub fn transform(
         &self,
-        mut path: Path,
-        transformation_descriptor_chain: TransformationDescriptorChain,
+        path: &Path,
+        transformation_descriptor_chain: &TransformationDescriptorChain,
     ) -> Result<Path, Box<dyn Error>> {
+        let mut path = path.clone();
+
         if !transformation_descriptor_chain.is_empty() {
             let suffix = transformation_descriptor_chain
                 .iter()

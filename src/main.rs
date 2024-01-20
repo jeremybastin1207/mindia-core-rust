@@ -1,23 +1,22 @@
-use redis::Client;
-use scheduler::task_scheduler::run_scheduler;
-use scheduler::TaskExecutor;
-use std::sync::Arc;
-use aws_types::region::Region;
-use log4rs::append::console::ConsoleAppender;
-use log4rs::Config;
-use log4rs::config::{Appender, Root};
-use log::LevelFilter;
-use crate::adapter::{ S3};
-use crate::api::run_server;
-use crate::apikey::{ApiKeyStorage, RedisApiKeyStorage};
-use crate::config::{ConfigLoader, StorageKind};
-use crate::metadata::{MetadataStorage, RedisMetadataStorage};
-use crate::scheduler::{RedisTaskStorage, TaskStorage};
-use crate::storage::{FileStorage, FilesystemStorage, S3Storage};
-use crate::transform::{NamedTransformationStorage, RedisNamedTransformationStorage};
+#![feature(async_closure)]
 
 extern crate cfg_if;
 extern crate exif;
+
+use std::sync::Arc;
+use aws_types::region::Region;
+use log4rs::append::console::ConsoleAppender;
+use log4rs::config::{Appender, Root};
+use log::LevelFilter;
+use crate::adapter::S3;
+use crate::api::server::run_server;
+use crate::apikey::{ApiKeyStorage, RedisApiKeyStorage};
+use crate::config::{ConfigLoader, StorageKind};
+use crate::metadata::{MetadataStorage, RedisMetadataStorage};
+use crate::scheduler::{RedisTaskStorage, TaskExecutor, TaskStorage};
+use crate::scheduler::task_scheduler::run_scheduler;
+use crate::storage::{FileStorage, FilesystemStorage, S3Storage};
+use crate::transform::{NamedTransformationStorage, RedisNamedTransformationStorage};
 
 mod adapter;
 mod api;
@@ -36,31 +35,31 @@ mod utils;
 
 
 
-fn init_tracer() {
-/*    let otlp_collector_url = "https://otlp-gateway-prod-eu-west-0.grafana.net/otlp";
-
-    let export_config = ExportConfig {
-        endpoint: otlp_collector_url.to_string(),
-        ..Default::default()
-    };
-
-    match SpanExporter::new_tonic(export_config, TonicConfig::default())  {
-        Ok(exporter) => {
-            let provider = TracerProvider::builder()
-                .with_simple_exporter(exporter)
-                .build();
-            global::set_tracer_provider(provider);
-            global::set_text_map_propagator(TraceContextPropagator::new());
-        },
-        Err(why) => panic!("{:?}", why)
-    }*/
-}
+// fn init_tracer() {
+// /*    let otlp_collector_url = "https://otlp-gateway-prod-eu-west-0.grafana.net/otlp";
+//
+//     let export_config = ExportConfig {
+//         endpoint: otlp_collector_url.to_string(),
+//         ..Default::default()
+//     };
+//
+//     match SpanExporter::new_tonic(export_config, TonicConfig::default())  {
+//         Ok(exporter) => {
+//             let provider = TracerProvider::builder()
+//                 .with_simple_exporter(exporter)
+//                 .build();
+//             global::set_tracer_provider(provider);
+//             global::set_text_map_propagator(TraceContextPropagator::new());
+//         },
+//         Err(why) => panic!("{:?}", why)
+//     }*/
+// }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let stdout = ConsoleAppender::builder().build();
 
-    let config = Config::builder()
+    let config = log4rs::Config::builder()
         .appender(Appender::builder().build("stdout", Box::new(stdout)))
         .build(
             Root::builder()
@@ -78,7 +77,7 @@ async fn main() -> std::io::Result<()> {
     let redis_client = if let Some(redis) = config.adapter.redis.clone() {
         let redis_address = format!("redis://{}:{}", redis.host, redis.port);
 
-        Some(Client::open(redis_address.as_str()).expect("Error creating Redis client"))
+        Some(redis::Client::open(redis_address.as_str()).expect("Error creating Redis client"))
     } else {
         None
     };
@@ -87,7 +86,8 @@ async fn main() -> std::io::Result<()> {
         let creds = aws_sdk_s3::config::Credentials::new(s3.access_key_id, s3.secret_access_key, None, None, "");
         let conf = aws_sdk_s3::Config::builder()
             .credentials_provider(creds)
-            .region(Region::new(s3.region.clone() ))
+            .region(Region::new(s3.region.clone()))
+            .behavior_version_latest()
             .build();
 
         Some(aws_sdk_s3::Client::from_conf(conf))

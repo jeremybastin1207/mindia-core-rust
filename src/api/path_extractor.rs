@@ -1,3 +1,5 @@
+use std::future::Future;
+use std::pin::Pin;
 use actix_web::dev::Payload;
 use actix_web::{web, FromRequest, HttpRequest};
 use futures::executor::block_on;
@@ -12,23 +14,20 @@ pub struct PathExtractor {
 
 impl FromRequest for PathExtractor {
     type Error = actix_web::Error;
-    type Future = Ready<Result<Self, Self::Error>>;
+    type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Error>>>>;
 
     fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
-        let path_result = block_on(web::Path::<String>::from_request(req, payload));
-        let transformation_chain_result =
-            block_on(TransformationChainExtractor::from_request(req, payload));
+        let path_future = web::Path::<String>::from_request(req, payload);
+        let transformation_chain_future = TransformationChainExtractor::from_request(req, payload);
 
-        match (path_result, transformation_chain_result) {
-            (Ok(path), Ok(transformation_chain)) => {
-                let transformation_chain_str = transformation_chain.transformation_chain_str;
+        Box::pin(async move {
+            let path = path_future.await?;
+            let transformation_chain = transformation_chain_future.await?;
 
-                let path =
-                    Path::new(path.as_str().trim_start_matches(&transformation_chain_str)).unwrap();
+            let transformation_chain_str = transformation_chain.transformation_chain_str;
+            let path = Path::new(path.as_str().trim_start_matches(&transformation_chain_str)).unwrap();
 
-                ready(Ok(PathExtractor { path: Some(path) }))
-            }
-            (Err(e), _) | (_, Err(e)) => ready(Err(e.into())),
-        }
+            Ok(PathExtractor { path: Some(path) })
+        })
     }
 }

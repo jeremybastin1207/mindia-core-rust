@@ -1,12 +1,12 @@
-pub mod pipeline_step_factory_trait;
-pub mod pipeline_steps_factory;
-pub mod scaler_factory;
-pub mod upload_media_context;
-pub mod watermarker_factory;
-pub mod colorizer_factory;
+mod pipeline_step_factory_trait;
+mod pipeline_steps_factory;
+mod scaler_factory;
+mod upload_media_context;
+// mod watermarker_factory;
+mod colorizer_factory;
 
-pub use pipeline_step_factory_trait::PipelineStepFactory;
+use pipeline_step_factory_trait::PipelineStepFactory;
 pub use pipeline_steps_factory::PipelineStepsFactory;
-pub use scaler_factory::ScalerFactory;
+use scaler_factory::ScalerFactory;
 pub use upload_media_context::UploadMediaContext;
-pub use watermarker_factory::WatermarkerFactory;
+// use watermarker_factory::WatermarkerFactory;
