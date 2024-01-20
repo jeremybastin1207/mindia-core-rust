@@ -1,5 +1,6 @@
 use bytes::{Bytes, BytesMut};
 use std::{error::Error, sync::Arc};
+use crate::extractor::ExifExtractor;
 use crate::handler::upload::{PipelineStepsFactory, UploadMediaContext};
 use crate::media::{MediaGroupHandle, MediaHandle, Path};
 use crate::metadata::{Metadata, MetadataStorage};
@@ -44,12 +45,11 @@ impl MediaHandler {
         let metadata_storage = self.metadata_storage.clone();
 
         let transforms: Vec<Box<dyn PipelineStep<UploadMediaContext>>> = vec![
-            // Box::new(ExifExtractor::default()),
+            Box::new(ExifExtractor::default()),
             Box::new(WebpConverter::default()),
             Box::new(PathGenerator::default())
         ];
 
-        // foreach transforms as Pipeline step and execute them
         let mut context = PipelineContext::<UploadMediaContext>::new(UploadMediaContext::default());
         context.attributes.media_handle = MediaHandle::new(body.clone(), Metadata::new(path.clone()));
 

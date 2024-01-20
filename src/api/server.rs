@@ -1,5 +1,7 @@
 use actix_web::{web, App, HttpServer};
 use std::sync::Arc;
+use crate::api::app_state::AppState;
+use crate::api::middleware_apikey::ApiKeyChecker;
 use crate::apikey::ApiKeyStorage;
 use crate::config::Config;
 use crate::handler::{CacheHandler, MediaHandler};
@@ -7,13 +9,10 @@ use crate::metadata::MetadataStorage;
 use crate::scheduler::TaskScheduler;
 use crate::storage::FileStorage;
 use crate::transform::{NamedTransformationStorage, TransformationTemplateRegistry};
-
-use super::{
-     copy_media, delete_apikey, delete_media, delete_named_transformation,
-    download_media, get_apikeys, get_named_transformations, get_transformation_templates,
-    middleware_apikey::ApiKeyChecker, move_media, read_media, save_apikey,
-    save_named_transformation, upload, AppState,
-};
+use crate::api::api_apikey::{delete_apikey, get_apikeys, save_apikey};
+use crate::api::api_transformation::{delete_named_transformation, get_named_transformations, get_transformation_templates, save_named_transformation};
+use crate::api::api_media::{copy_media, delete_media, download_media, move_media, read_media, upload};
+use crate::api::api_clear_cache::clear_cache;
 
 
 pub async fn run_server(
@@ -60,7 +59,7 @@ pub async fn run_server(
                     .service(upload)
                     .service(read_media)
                     .service(download_media)
-                   // .service(clear_cache)
+                    .service(clear_cache)
                     .service(delete_media)
                     .service(copy_media)
                     .service(move_media),

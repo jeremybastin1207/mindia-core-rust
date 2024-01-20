@@ -10,7 +10,7 @@ mod transformation_chain_extractor;
 mod utils;
 
 use api_apikey::{delete_apikey, get_apikeys, save_apikey};
-//use api_clear_cache::clear_cache;
+use api_clear_cache::clear_cache;
 use api_media::{copy_media, delete_media, download_media, move_media, read_media, upload};
 use api_transformation::{
     delete_named_transformation, get_named_transformations, get_transformation_templates,

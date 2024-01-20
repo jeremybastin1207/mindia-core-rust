@@ -1,10 +1,9 @@
 use actix_web::{delete, get, post, web, HttpResponse, Responder};
+use serde::{Deserialize, Serialize};
+use crate::api::app_state::AppState;
+use crate::apikey::ApiKey;
+use crate::utils::generate_apikey;
 
-use crate::{
-    api::app_state::AppState,
-    apikey::ApiKey,
-    utils::generate_apikey,
-};
 
 #[get("/apikey")]
 pub async fn get_apikeys(data: web::Data<AppState>) -> impl Responder {
@@ -17,10 +16,15 @@ pub async fn get_apikeys(data: web::Data<AppState>) -> impl Responder {
     }
 }
 
+#[derive(Deserialize)]
+struct SaveApiKeyBody {
+    name: String,
+}
+
 #[post("/apikey")]
 pub async fn save_apikey(
     data: web::Data<AppState>,
-    new_apikey: web::Json<ApiKey>,
+    new_apikey: web::Json<SaveApiKeyBody>,
 ) -> impl Responder {
     let apikey = ApiKey {
         name: new_apikey.name.clone(),

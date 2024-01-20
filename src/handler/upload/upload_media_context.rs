@@ -8,6 +8,7 @@ use crate::{
         PathGenerator, Scaler, TransformationDescriptorChain, WebpConverter,
     },
 };
+use crate::transform::Watermarker;
 
 #[derive(Default, Clone)]
 pub struct UploadMediaContext {
@@ -65,19 +66,19 @@ impl PipelineStep<UploadMediaContext> for Scaler {
     }
 }
 
-// #[async_trait]
-// impl PipelineStep<UploadMediaContext> for Watermarker {
-//     async fn execute(
-//         &self,
-//         mut ctx: PipelineContext<UploadMediaContext>,
-//     ) -> Result<PipelineContext<UploadMediaContext>, Box<dyn Error>> {
-//         let body = self.transform(ctx.attributes.media_handle.body.clone())?;
-//
-//         ctx.attributes.media_handle.body = body;
-//
-//         Ok(ctx)
-//     }
-// }
+#[async_trait]
+impl PipelineStep<UploadMediaContext> for Watermarker {
+    async fn execute(
+        &self,
+        mut ctx: PipelineContext<UploadMediaContext>,
+    ) -> Result<PipelineContext<UploadMediaContext>, Box<dyn Error>> {
+        let body = self.transform(ctx.attributes.media_handle.body.clone()).await?;
+
+        ctx.attributes.media_handle.body = body;
+
+        Ok(ctx)
+    }
+}
 
 #[async_trait]
 impl PipelineStep<UploadMediaContext> for PathGenerator {
