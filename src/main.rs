@@ -2,7 +2,6 @@
 
 extern crate cfg_if;
 extern crate exif;
-extern crate tree_magic;
 
 use std::sync::Arc;
 use aws_types::region::Region;
