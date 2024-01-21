@@ -8,6 +8,7 @@ use crate::pipeline::PipelineStep;
 use crate::storage::FileStorage;
 use crate::transform::{TransformationDescriptor, Watermarker};
 use crate::transform::watermarker::Anchor;
+use crate::types::Size;
 
 pub struct WatermarkerFactory {
     pub file_storage: Arc<dyn FileStorage>,
@@ -63,7 +64,9 @@ impl PipelineStepFactory for WatermarkerFactory {
         let anchor = Anchor::from_str(&anchor)?;
         let file_storage = Arc::clone(&self.file_storage);
 
+        let size = Size::new(width, height);
 
-        Ok(Box::new(Watermarker::new(anchor, padding, height, width, path, file_storage)))
+
+        Ok(Box::new(Watermarker::new(anchor, padding, size, path, file_storage)))
     }
 }

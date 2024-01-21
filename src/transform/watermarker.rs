@@ -14,19 +14,17 @@ use crate::types::Size;
 pub struct Watermarker {
     anchor: Anchor,
     padding: u32,
-    width: u32,
-    height: u32,
+    size: Size,
     overlay_path: Path,
     file_storage: Arc<dyn FileStorage>,
 }
 
 impl Watermarker {
-    pub fn new(anchor: Anchor, padding: u32, width: u32, height: u32, overlay_path: Path, file_storage: Arc<dyn FileStorage>) -> Self {
+    pub fn new(anchor: Anchor, padding: u32, size: Size, overlay_path: Path, file_storage: Arc<dyn FileStorage>) -> Self {
         Self {
             anchor,
             padding,
-            width,
-            height,
+            size,
             overlay_path,
             file_storage,
         }
@@ -36,17 +34,29 @@ impl Watermarker {
         match self.file_storage.download(self.overlay_path.as_str()).await? {
             Some(overlay_bytes) => {
                 let mut img = image::load_from_memory(&bytes)?;
+                let (img_w, img_h) = img.dimensions();
+
+                let mut overlay_w = self.size.width;
+                let mut overlay_h = self.size.height;
+                let aspect_ratio = overlay_w as f32 / overlay_h as f32;
+
+                if !watermark_can_fit_in_image((img_w, img_h), (overlay_w, overlay_h), self.padding) {
+                     match find_watermark_size_that_fit_image(img.dimensions(), self.padding, aspect_ratio) {
+                        Ok((w, h)) => {
+                            overlay_w = w;
+                            overlay_h = h;
+                         },
+                        Err(e) => return Err(e.into()),
+                    }
+                }
 
                 let mut overlay_bytes_mut = BytesMut::new();
                 overlay_bytes_mut.extend_from_slice(&overlay_bytes);
 
-                let scaler = Scaler::new(Size::new(self.width, self.height), CropStrategy::ForcedCrop, Rgba([0, 0, 0, 0]));
+                let scaler = Scaler::new(Size::new(overlay_w, overlay_h), CropStrategy::ForcedCrop, Rgba([0, 0, 0, 0]));
                 let scaled_overlay = scaler.transform(self.overlay_path.clone(), overlay_bytes_mut)?;
 
                 let mut overlay = image::load_from_memory(&scaled_overlay)?;
-
-                let (img_w, img_h) = img.dimensions();
-                let (overlay_w, overlay_h) = overlay.dimensions();
 
                 let (x, y) = get_watermark_position(
                     (img_w, img_h),
@@ -77,6 +87,31 @@ impl Watermarker {
             None => Ok(bytes)
         }
     }
+}
+
+fn watermark_can_fit_in_image(image_size: (u32, u32), watermark_size: (u32, u32), padding: u32) -> bool {
+    let (img_w, img_h) = image_size;
+    let (wk_w, wk_h) = watermark_size;
+
+    img_w > wk_w + padding * 2 && img_h > wk_h + padding * 2
+}
+
+fn find_watermark_size_that_fit_image(image_size: (u32, u32), padding: u32, watermark_aspect_ratio: f32) -> Result<(u32, u32), Box<dyn Error>> {
+    let (img_w, img_h) = image_size;
+
+    let mut width = img_w - (padding * 2);
+    let mut height = (width as f32 / watermark_aspect_ratio).round() as u32;
+
+    if width <= 0 || height <= 0 || height > img_h - (padding * 2) {
+        height = img_h - (padding * 2);
+        width = (height as f32 * watermark_aspect_ratio).round() as u32;
+
+        if width <= 0 || height <= 0 {
+            return Err("Watermark is too big".into());
+        }
+    }
+
+    Ok((width, height))
 }
 
 fn get_watermark_position(
