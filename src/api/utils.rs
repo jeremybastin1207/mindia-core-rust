@@ -1,4 +1,4 @@
-pub fn parse_transformation_from_path(path: &str) -> (String, String) {
+pub(crate) fn parse_transformation_from_path(path: &str) -> (String, String) {
     let mut transformation_chain = String::new();
     let mut image_path = String::new();
 

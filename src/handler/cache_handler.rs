@@ -16,6 +16,7 @@ pub struct ClearCacheTaskDetails {
     pub before_created_at: DateTime<Utc>,
 }
 
+#[derive(Clone)]
 pub struct CacheHandler {
     cache_storage: Arc<dyn FileStorage>,
     metadata_storage: Arc<dyn MetadataStorage>,

@@ -1,5 +1,3 @@
-#![feature(async_closure)]
-
 extern crate cfg_if;
 extern crate exif;
 
@@ -34,28 +32,7 @@ mod types;
 mod utils;
 
 
-
-// fn init_tracer() {
-// /*    let otlp_collector_url = "https://otlp-gateway-prod-eu-west-0.grafana.net/otlp";
-//
-//     let export_config = ExportConfig {
-//         endpoint: otlp_collector_url.to_string(),
-//         ..Default::default()
-//     };
-//
-//     match SpanExporter::new_tonic(export_config, TonicConfig::default())  {
-//         Ok(exporter) => {
-//             let provider = TracerProvider::builder()
-//                 .with_simple_exporter(exporter)
-//                 .build();
-//             global::set_tracer_provider(provider);
-//             global::set_text_map_propagator(TraceContextPropagator::new());
-//         },
-//         Err(why) => panic!("{:?}", why)
-//     }*/
-// }
-
-#[actix_web::main]
+#[tokio::main]
 async fn main() -> std::io::Result<()> {
     let stdout = ConsoleAppender::builder().build();
 
@@ -69,8 +46,6 @@ async fn main() -> std::io::Result<()> {
         .unwrap();
 
     log4rs::init_config(config).unwrap();
-
-    //init_tracer();
 
     let config = ConfigLoader::load().unwrap();
 

@@ -1,53 +1,46 @@
-use actix_web::{delete, get, post, web, HttpResponse, Responder};
-
+use axum::extract::{Path, State};
+use axum::http::StatusCode;
+use axum::Json;
+use axum::response::IntoResponse;
 use crate::api::app_state::AppState;
 use crate::transform::NamedTransformation;
 
-#[get("/transformation/templates")]
-pub async fn get_transformation_templates(data: web::Data<AppState>) -> impl Responder {
-    let transformation_templates = data.transformation_template_registry.get_all();
-
-    HttpResponse::Ok().json(transformation_templates)
+pub async fn get_transformation_templates(State(state): State<AppState>) -> impl IntoResponse {
+    let transformation_templates = state.transformation_template_registry.get_all();
+    Json(transformation_templates)
 }
 
-#[get("/named_transformation")]
-pub async fn get_named_transformations(data: web::Data<AppState>) -> impl Responder {
-    match data.named_transformation_storage.get_all() {
+pub async fn get_named_transformations(State(state): State<AppState>) -> impl IntoResponse {
+    match state.named_transformation_storage.get_all() {
         Ok(named_transformations) => {
             let named_transformations: Vec<NamedTransformation> =
                 named_transformations.into_iter().map(|(_, v)| v).collect();
-            HttpResponse::Ok().json(named_transformations)
+            (StatusCode::OK, Json(named_transformations)).into_response()
         }
-        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(e.to_string())).into_response(),
     }
 }
 
-#[post("/named_transformation")]
 pub async fn save_named_transformation(
-    data: web::Data<AppState>,
-    new_named_transformation: web::Json<NamedTransformation>,
-) -> impl Responder {
-    let named_transformation = new_named_transformation.into_inner();
-
-    match data
-        .named_transformation_storage
-        .save(named_transformation.clone())
+    State(state): State<AppState>,
+    Json(new_named_transformation): Json<NamedTransformation>
+) -> impl IntoResponse {
+    match state.named_transformation_storage.save(new_named_transformation.clone())
     {
-        Ok(()) => HttpResponse::Ok().body(format!(
+        Ok(()) => (StatusCode::OK, format!(
             "Named transformation {} saved",
-            named_transformation.name
+            new_named_transformation.name
         )),
-        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
     }
 }
 
-#[delete("/named_transformation/{name}")]
 pub async fn delete_named_transformation(
-    data: web::Data<AppState>,
-    name: web::Path<String>,
-) -> impl Responder {
-    match data.named_transformation_storage.delete(&name) {
-        Ok(()) => HttpResponse::Ok().body(format!("Named transformation {} deleted", name)),
-        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
+    match state.named_transformation_storage.delete(&name) {
+        Ok(()) => (StatusCode::OK, format!("Named transformation {} deleted", name)),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
     }
 }

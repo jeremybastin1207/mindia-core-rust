@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use actix_web::web::Bytes;
 use aws_sdk_s3 as s3;
 use std::error::Error;
+use bytes::Bytes;
 
 pub struct S3Object {
     pub body: Bytes,

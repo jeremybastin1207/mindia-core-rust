@@ -1,46 +1,51 @@
-use actix_web::{delete, get, post, web, HttpResponse, Responder};
-use serde::{Deserialize, Serialize};
+use axum::extract::{Path, State};
+use axum::http::StatusCode;
+use axum::Json;
+use axum::response::IntoResponse;
+use serde::Deserialize;
 use crate::api::app_state::AppState;
 use crate::apikey::ApiKey;
 use crate::utils::generate_apikey;
 
 
-#[get("/apikey")]
-pub async fn get_apikeys(data: web::Data<AppState>) -> impl Responder {
-    match data.apikey_storage.get_all() {
+pub async fn get_apikeys(State(state): State<AppState>) -> impl IntoResponse {
+    match state.apikey_storage.get_all() {
         Ok(api_keys) => {
             let api_keys: Vec<ApiKey> = api_keys.into_iter().map(|(_, v)| v).collect();
-            HttpResponse::Ok().json(api_keys)
+            (StatusCode::OK, Json(api_keys)).into_response()
         }
-        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }
 
-#[derive(Deserialize)]
-struct SaveApiKeyBody {
-    name: String,
-}
-
-#[post("/apikey")]
 pub async fn save_apikey(
-    data: web::Data<AppState>,
-    new_apikey: web::Json<SaveApiKeyBody>,
-) -> impl Responder {
+    State(data): State<AppState>,
+    Json(new_apikey): Json<SaveApiKeyBody>,
+) -> impl IntoResponse {
     let apikey = ApiKey {
         name: new_apikey.name.clone(),
         key: generate_apikey(),
     };
 
     match data.apikey_storage.save(apikey) {
-        Ok(()) => HttpResponse::Ok().body(format!("API key {} saved", new_apikey.name)),
-        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+        Ok(()) => (StatusCode::OK, format!("API key {} saved", new_apikey.name)),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
     }
 }
 
-#[delete("/apikey/{name}")]
-pub async fn delete_apikey(data: web::Data<AppState>, name: web::Path<String>) -> impl Responder {
+pub async fn delete_apikey(
+    State(data): State<AppState>,
+    Path(name): Path<String>,
+) -> impl IntoResponse {
     match data.apikey_storage.delete(&name) {
-        Ok(()) => HttpResponse::Ok().body(format!("API key {} deleted", name)),
-        Err(e) => HttpResponse::InternalServerError().body(e.to_string()),
+        Ok(()) => (StatusCode::OK, format!("API key {} deleted", name)),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
     }
+}
+
+// ----------- TYPES ------------
+
+#[derive(Deserialize)]
+pub struct SaveApiKeyBody {
+    name: String,
 }

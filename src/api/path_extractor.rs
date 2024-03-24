@@ -1,33 +1,30 @@
-use std::future::Future;
-use std::pin::Pin;
-use actix_web::dev::Payload;
-use actix_web::{web, FromRequest, HttpRequest};
-use futures::executor::block_on;
-use futures::future::{ready, Ready};
-
-use super::TransformationChainExtractor;
+use async_trait::async_trait;
+use axum::extract::FromRequestParts;
+use axum::http::request::Parts;
+use axum::http::StatusCode;
+use crate::api::transformation_chain_extractor::TransformationChainExtractor;
 use crate::media::Path;
 
 pub struct PathExtractor {
     pub path: Option<Path>,
 }
 
-impl FromRequest for PathExtractor {
-    type Error = actix_web::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Error>>>>;
+#[async_trait]
+impl<S> FromRequestParts<S> for PathExtractor
+    where
+        S: Send + Sync,
+{
+    type Rejection = StatusCode;
 
-    fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
-        let path_future = web::Path::<String>::from_request(req, payload);
-        let transformation_chain_future = TransformationChainExtractor::from_request(req, payload);
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let transformation_chain = TransformationChainExtractor::from_request_parts(parts, state)
+            .await
+            .map_err(|_| StatusCode::BAD_REQUEST)?;
 
-        Box::pin(async move {
-            let path = path_future.await?;
-            let transformation_chain = transformation_chain_future.await?;
+        let path = Path::new(
+            parts.uri.path().trim_start_matches(&transformation_chain.transformation_chain_str)
+        ).map_err(|_| StatusCode::BAD_REQUEST)?;
 
-            let transformation_chain_str = transformation_chain.transformation_chain_str;
-            let path = Path::new(path.as_str().trim_start_matches(&transformation_chain_str)).unwrap();
-
-            Ok(PathExtractor { path: Some(path) })
-        })
+        Ok(PathExtractor { path: Some(path) })
     }
 }

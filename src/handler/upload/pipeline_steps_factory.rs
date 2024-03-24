@@ -9,6 +9,7 @@ use crate::pipeline::PipelineStep;
 use crate::storage::FileStorage;
 use crate::transform::{TransformationDescriptorChain, TransformationName};
 
+#[derive(Clone)]
 pub struct PipelineStepsFactory {
     factories: Arc<Mutex<HashMap<TransformationName, Box<dyn PipelineStepFactory>>>>,
 }

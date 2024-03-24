@@ -2,10 +2,10 @@ use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use serde_json::json;
 use std::error::Error;
 use std::time::Duration;
-use actix_rt::time::sleep;
 use bytes::BytesMut;
 use std::sync::Arc;
 use serde::{Deserialize};
+use tokio::time::sleep;
 use crate::media::Path;
 use crate::storage::FileStorage;
 

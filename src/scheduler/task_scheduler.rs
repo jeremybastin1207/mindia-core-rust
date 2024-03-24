@@ -4,7 +4,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-
+use tokio::time::sleep;
 use super::{Task, TaskExecutor, TaskKind, TaskStorage};
 
 pub struct TaskScheduler {
@@ -46,7 +46,7 @@ impl TaskScheduler {
                     let task_executor = self.task_executors.get(&task.kind).unwrap().clone();
                     let task_storage = self.task_storage.clone();
 
-                    actix_web::rt::spawn(async move {
+                    tokio::spawn(async move {
                         match task_executor.run(task).await {
                             Ok(result) => {
                                 if let Err(e) = task_storage.push(result) {
@@ -61,11 +61,11 @@ impl TaskScheduler {
                 }
                 None => {
                     // No more tasks to run, sleep for a while before checking again
-                    actix_web::rt::time::sleep(std::time::Duration::from_secs(1)).await;
+                    sleep(std::time::Duration::from_secs(1)).await;
                 }
             }
 
-            actix_web::rt::time::sleep(std::time::Duration::from_secs(1)).await;
+            sleep(std::time::Duration::from_secs(1)).await;
         }
     }
 }
@@ -89,7 +89,7 @@ pub fn run_scheduler(
     let task_scheduler = Arc::new(task_scheduler);
     let task_scheduler_clone = task_scheduler.clone();
 
-    actix_web::rt::spawn(async move {
+    tokio::spawn(async move {
         task_scheduler_clone.run().await;
     });
 
