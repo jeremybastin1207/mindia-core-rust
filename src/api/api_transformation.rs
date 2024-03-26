@@ -2,15 +2,18 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::Json;
 use axum::response::IntoResponse;
+
 use crate::api::app_state::AppState;
 use crate::transform::NamedTransformation;
 
-pub async fn get_transformation_templates(State(state): State<AppState>) -> impl IntoResponse {
+pub(crate) async fn get_transformation_templates(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
     let transformation_templates = state.transformation_template_registry.get_all();
     Json(transformation_templates)
 }
 
-pub async fn get_named_transformations(State(state): State<AppState>) -> impl IntoResponse {
+pub(crate) async fn get_named_transformations(State(state): State<AppState>) -> impl IntoResponse {
     match state.named_transformation_storage.get_all() {
         Ok(named_transformations) => {
             let named_transformations: Vec<NamedTransformation> =
@@ -21,26 +24,34 @@ pub async fn get_named_transformations(State(state): State<AppState>) -> impl In
     }
 }
 
-pub async fn save_named_transformation(
+pub(crate) async fn save_named_transformation(
     State(state): State<AppState>,
-    Json(new_named_transformation): Json<NamedTransformation>
+    Json(new_named_transformation): Json<NamedTransformation>,
 ) -> impl IntoResponse {
-    match state.named_transformation_storage.save(new_named_transformation.clone())
+    match state
+        .named_transformation_storage
+        .save(new_named_transformation.clone())
     {
-        Ok(()) => (StatusCode::OK, format!(
-            "Named transformation {} saved",
-            new_named_transformation.name
-        )),
+        Ok(()) => (
+            StatusCode::OK,
+            format!(
+                "Named transformation {} saved",
+                new_named_transformation.name
+            ),
+        ),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
     }
 }
 
-pub async fn delete_named_transformation(
+pub(crate) async fn delete_named_transformation(
     State(state): State<AppState>,
     Path(name): Path<String>,
 ) -> impl IntoResponse {
     match state.named_transformation_storage.delete(&name) {
-        Ok(()) => (StatusCode::OK, format!("Named transformation {} deleted", name)),
+        Ok(()) => (
+            StatusCode::OK,
+            format!("Named transformation {} deleted", name),
+        ),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
     }
 }

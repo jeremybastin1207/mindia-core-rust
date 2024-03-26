@@ -1,14 +1,19 @@
 use std::net::SocketAddr;
-use axum::{routing::get, Router};
 use std::sync::Arc;
+
+use axum::{Router, routing::get};
 use axum::http::{HeaderName, HeaderValue, Method};
 use axum::routing::{delete, post};
-use tower_http::cors::{AllowOrigin, Any, CorsLayer};
-use tower_http::{trace::TraceLayer};
+use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::trace::TraceLayer;
+
 use crate::api::api_apikey::{delete_apikey, get_apikeys, save_apikey};
 use crate::api::api_clear_cache::clear_cache;
 use crate::api::api_media::delete_media;
-use crate::api::api_transformation::{delete_named_transformation, get_named_transformations, get_transformation_templates, save_named_transformation};
+use crate::api::api_transformation::{
+    delete_named_transformation, get_named_transformations, get_transformation_templates,
+    save_named_transformation,
+};
 use crate::api::app_state::AppState;
 use crate::apikey::ApiKeyStorage;
 use crate::config::Config;
@@ -17,7 +22,6 @@ use crate::metadata::MetadataStorage;
 use crate::scheduler::TaskScheduler;
 use crate::storage::FileStorage;
 use crate::transform::{NamedTransformationStorage, TransformationTemplateRegistry};
-
 
 pub async fn run_server(
     config: Config,
@@ -43,31 +47,45 @@ pub async fn run_server(
     };
 
     let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST, Method::PATCH, Method::PUT, Method::DELETE, Method::OPTIONS])
-        .allow_origin(AllowOrigin::exact(HeaderValue::from_static("http://localhost:3000")))
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PATCH,
+            Method::PUT,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_origin(AllowOrigin::exact(HeaderValue::from_static(
+            "http://localhost:3000",
+        )))
         .allow_headers(vec![HeaderName::from_static("content-type")])
         .allow_credentials(true);
 
     let app = Router::new()
         .route("/", get(|| async { "Mindia API" }))
-        .nest("/api/v0", Router::new()
-            .nest("/named_transformation", Router::new()
-                .route("/templates", get(get_transformation_templates))
-                .route("/", get(get_named_transformations))
-                .route("/", post(save_named_transformation))
-                .route("/:name", delete(delete_named_transformation))
-            )
-            .nest("/apikey", Router::new()
-                .route("/", get(get_apikeys))
-                .route("/", post(save_apikey))
-                .route("/:name", delete(delete_apikey))
-            )
-            .nest("/media", Router::new()
-                .route("/*path", delete(delete_media))
-            )
-            .nest("/cache", Router::new()
-                .route("/", post(clear_cache))
-            )
+        .nest(
+            "/api/v0",
+            Router::new()
+                .nest(
+                    "/named_transformation",
+                    Router::new()
+                        .route("/templates", get(get_transformation_templates))
+                        .route("/", get(get_named_transformations))
+                        .route("/", post(save_named_transformation))
+                        .route("/:name", delete(delete_named_transformation)),
+                )
+                .nest(
+                    "/apikey",
+                    Router::new()
+                        .route("/", get(get_apikeys))
+                        .route("/", post(save_apikey))
+                        .route("/:name", delete(delete_apikey)),
+                )
+                .nest(
+                    "/media",
+                    Router::new().route("/*path", delete(delete_media)),
+                )
+                .nest("/cache", Router::new().route("/", post(clear_cache))),
         )
         .layer(cors)
         .layer(TraceLayer::new_for_http())
@@ -75,14 +93,18 @@ pub async fn run_server(
 
     let bind_address = format!("127.0.0.1:{}", config.server.port.clone());
 
-    let listener = tokio::net::TcpListener::bind(bind_address.clone()).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(bind_address.clone())
+        .await
+        .unwrap();
 
     println!("Server is running at http://{}", bind_address);
 
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     Ok(())
 }

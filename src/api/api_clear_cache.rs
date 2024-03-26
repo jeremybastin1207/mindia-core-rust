@@ -2,10 +2,11 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use chrono::Utc;
+
 use crate::api::app_state::AppState;
 use crate::scheduler::{Details, Task, TaskKind};
 
-pub async fn clear_cache(State(state): State<AppState>) -> impl IntoResponse {
+pub(crate) async fn clear_cache(State(state): State<AppState>) -> impl IntoResponse {
     let task_scheduler = state.task_scheduler.clone();
 
     let task = Task::new(
