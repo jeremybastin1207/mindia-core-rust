@@ -4,12 +4,13 @@ use std::sync::Arc;
 use axum::{Router, routing::get};
 use axum::http::{HeaderName, HeaderValue, Method};
 use axum::routing::{delete, post};
+use tokio::sync::Mutex;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use crate::api::api_apikey::{delete_apikey, get_apikeys, save_apikey};
 use crate::api::api_clear_cache::clear_cache;
-use crate::api::api_media::delete_media;
+use crate::api::api_media::{delete_media, read_media, upload_media};
 use crate::api::api_transformation::{
     delete_named_transformation, get_named_transformations, get_transformation_templates,
     save_named_transformation,
@@ -25,9 +26,9 @@ use crate::transform::{NamedTransformationStorage, TransformationTemplateRegistr
 
 pub async fn run_server(
     config: Config,
-    file_storage: Arc<dyn FileStorage>,
-    cache_storage: Arc<dyn FileStorage>,
-    metadata_storage: Arc<dyn MetadataStorage>,
+    file_storage: Arc<Mutex<dyn FileStorage>>,
+    cache_storage: Arc<Mutex<dyn FileStorage>>,
+    metadata_storage: Arc<Mutex<dyn MetadataStorage>>,
     named_transformation_storage: Arc<dyn NamedTransformationStorage>,
     apikey_storage: Arc<dyn ApiKeyStorage>,
     task_scheduler: Arc<TaskScheduler>,
@@ -83,7 +84,10 @@ pub async fn run_server(
                 )
                 .nest(
                     "/media",
-                    Router::new().route("/*path", delete(delete_media)),
+                    Router::new()
+                        .route("/*path", get(read_media))
+                        .route("/upload/*path", post(upload_media))
+                        .route("/*path", delete(delete_media)),
                 )
                 .nest("/cache", Router::new().route("/", post(clear_cache))),
         )

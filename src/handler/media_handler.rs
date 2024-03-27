@@ -1,39 +1,42 @@
 use std::{error::Error, sync::Arc};
 
 use bytes::{Bytes, BytesMut};
+use tokio::sync::Mutex;
 
-use crate::extractor::{ContentInfoExtractor, ExifExtractor};
-use crate::handler::upload::UploadMediaContext;
-use crate::media::{MediaGroupHandle, MediaHandle, Path};
+use crate::media::Path;
 use crate::metadata::{Metadata, MetadataStorage};
-use crate::pipeline::PipelineStep;
 use crate::storage::FileStorage;
-use crate::transform::{PathGenerator, TransformationDescriptorChain, WebpConverter};
+use crate::transform::TransformationDescriptorChain;
 
 #[derive(Clone)]
 pub struct MediaHandler {
-    file_storage: Arc<dyn FileStorage>,
-    cache_storage: Arc<dyn FileStorage>,
-    metadata_storage: Arc<dyn MetadataStorage>,
+    file_storage: Arc<Mutex<dyn FileStorage>>,
+    cache_storage: Arc<Mutex<dyn FileStorage>>,
+    metadata_storage: Arc<Mutex<dyn MetadataStorage>>,
     // pipeline_steps_factory: PipelineStepsFactory,
 }
 
 impl MediaHandler {
     pub fn new(
-        file_storage: Arc<dyn FileStorage>,
-        cache_storage: Arc<dyn FileStorage>,
-        metadata_storage: Arc<dyn MetadataStorage>,
+        file_storage: Arc<Mutex<dyn FileStorage>>,
+        cache_storage: Arc<Mutex<dyn FileStorage>>,
+        metadata_storage: Arc<Mutex<dyn MetadataStorage>>,
+        // pipeline_steps_factory: PipelineStepsFactory,
     ) -> Self {
         Self {
-            file_storage: file_storage.clone(),
-            cache_storage: cache_storage.clone(),
-            metadata_storage: metadata_storage.clone(),
-            //pipeline_steps_factory: PipelineStepsFactory::new(file_storage),
+            file_storage,
+            cache_storage,
+            metadata_storage,
+            // pipeline_steps_factory,
         }
     }
 
-    pub fn read(&self, path: Path) -> Result<Option<Metadata>, Box<dyn Error>> {
-        let result = self.metadata_storage.get_by_path(path.as_str())?;
+    pub async fn read(&self, path: Path) -> Result<Option<Metadata>, Box<dyn Error>> {
+        let result = self
+            .metadata_storage
+            .lock()
+            .await
+            .get_by_path(path.as_str())?;
 
         Ok(result)
     }
@@ -43,35 +46,35 @@ impl MediaHandler {
         path: Path,
         transformation_chains: Vec<TransformationDescriptorChain>,
         body: BytesMut,
-    ) -> Result<Metadata, Box<dyn Error>> {
-        let transforms: Vec<Box<dyn PipelineStep<UploadMediaContext>>> = vec![
-            Box::new(ExifExtractor::default()),
-            Box::new(WebpConverter::default()),
-            Box::new(PathGenerator::default()),
-            Box::new(ContentInfoExtractor::default()),
-        ];
+    ) -> Result<(), Box<dyn Error>> {
+        /*    let transforms: Vec<Box<dyn PipelineStep<UploadMediaContext>>> = vec![
+                    Box::new(ExifExtractor::default()),
+                    Box::new(WebpConverter::default()),
+                    Box::new(PathGenerator::default()),
+                    Box::new(ContentInfoExtractor::default()),
+                ];
 
-        let mut context = UploadMediaContext::default();
-        context.media_handle = MediaHandle::new(body.clone(), Metadata::new(path.clone()));
+                let mut context = UploadMediaContext::default();
+                context.media_handle = MediaHandle::new(body.clone(), Metadata::new(path.clone()));
 
-        for step in transforms {
-            context = step.execute(context).await?;
-        }
+                for step in transforms {
+                    context = step.execute(context).await?;
+                }
 
-        self.file_storage
-            .upload(
-                context.media_handle.metadata.path.as_str(),
-                context.media_handle.body.clone().into(),
-            )
-            .await?;
+                self.file_storage
+                    .upload(
+                        context.media_handle.metadata.path.as_str(),
+                        context.media_handle.body.clone().into(),
+                    )
+                    .await?;
 
-        self.metadata_storage.save(
-            context.media_handle.metadata.path.as_str(),
-            context.media_handle.metadata.clone(),
-        )?;
+                self.metadata_storage.save(
+                    context.media_handle.metadata.path.as_str(),
+                    context.media_handle.metadata.clone(),
+                )?;
 
-        let mut media_group_handle = MediaGroupHandle::new(context.media_handle.clone(), vec![]);
-
+                let mut media_group_handle = MediaGroupHandle::new(context.media_handle.clone(), vec![]);
+        */
         // if !transformation_chains.is_empty() {
         //     for transformation_chain in transformation_chains {
         //         let mut transformation_steps = self
@@ -102,14 +105,15 @@ impl MediaHandler {
         //     )?;
         // }
 
-        Ok(media_group_handle.media.metadata)
+        // Ok(media_group_handle.media.metadata)
+        Ok(())
     }
 
     pub async fn download(
         &self,
         path: Path,
         transformation_chain: Option<TransformationDescriptorChain>,
-    ) -> Result<Option<Bytes>, Box<dyn Error>> {
+    ) -> Result<Option<Bytes>, Box<dyn Error + Send>> {
         Ok(None)
 
         //     if transformation_chain.is_none() {
@@ -159,7 +163,12 @@ impl MediaHandler {
     }
 
     pub async fn move_(&self, src: Path, dst: Path) -> Result<(), Box<dyn Error>> {
-        let mut metadata = match self.metadata_storage.get_by_path(src.as_str())? {
+        let mut metadata = match self
+            .metadata_storage
+            .lock()
+            .await
+            .get_by_path(src.as_str())?
+        {
             Some(metadata) => metadata,
             None => {
                 return Err(Box::new(std::io::Error::new(
@@ -173,6 +182,8 @@ impl MediaHandler {
 
         for mut derived_media in metadata.derived_medias {
             self.cache_storage
+                .lock()
+                .await
                 .move_(derived_media.path.as_str(), dst.as_str())
                 .await?;
             derived_media.path = dst.clone().into();
@@ -181,16 +192,28 @@ impl MediaHandler {
 
         metadata.derived_medias = new_derived_medias;
 
-        self.file_storage.move_(src.as_str(), dst.as_str()).await?;
+        self.file_storage
+            .lock()
+            .await
+            .move_(src.as_str(), dst.as_str())
+            .await?;
         metadata.path = dst.clone().into();
 
-        self.metadata_storage.save(dst.as_str(), metadata.clone())?;
+        self.metadata_storage
+            .lock()
+            .await
+            .save(dst.as_str(), metadata.clone())?;
 
         Ok(())
     }
 
     pub async fn copy(&self, src: Path, dst: Path) -> Result<(), Box<dyn Error>> {
-        let mut metadata = match self.metadata_storage.get_by_path(src.as_str())? {
+        let mut metadata = match self
+            .metadata_storage
+            .lock()
+            .await
+            .get_by_path(src.as_str())?
+        {
             Some(metadata) => metadata,
             None => {
                 return Err(Box::new(std::io::Error::new(
@@ -204,6 +227,8 @@ impl MediaHandler {
 
         for mut derived_media in metadata.derived_medias {
             self.cache_storage
+                .lock()
+                .await
                 .copy(derived_media.path.as_str(), dst.as_str())
                 .await?;
             derived_media.path = dst.clone().into();
@@ -212,18 +237,29 @@ impl MediaHandler {
 
         metadata.derived_medias = new_derived_medias;
 
-        self.file_storage.copy(src.as_str(), dst.as_str()).await?;
+        self.file_storage
+            .lock()
+            .await
+            .copy(src.as_str(), dst.as_str())
+            .await?;
         metadata.path = dst.clone().into();
 
-        self.metadata_storage.save(dst.as_str(), metadata.clone())?;
+        self.metadata_storage
+            .lock()
+            .await
+            .save(dst.as_str(), metadata.clone())?;
 
         Ok(())
     }
 
     pub async fn delete(&self, path: Path) -> Result<(), Box<dyn Error>> {
-        self.file_storage.delete(path.as_str()).await?;
-        self.cache_storage.delete(path.as_str()).await?;
-        self.metadata_storage.delete(path.as_str())?;
+        self.file_storage.lock().await.delete(path.as_str()).await?;
+        self.cache_storage
+            .lock()
+            .await
+            .delete(path.as_str())
+            .await?;
+        self.metadata_storage.lock().await.delete(path.as_str())?;
 
         Ok(())
     }

@@ -4,6 +4,7 @@ use axum::extract::{Multipart, State};
 use axum::http::StatusCode;
 use axum::Json;
 use axum::response::IntoResponse;
+use axum_macros::debug_handler;
 use bytes::BytesMut;
 use futures::StreamExt;
 use log::error;
@@ -21,7 +22,7 @@ pub(crate) async fn read_media(
     State(state): State<AppState>,
     PathExtractor(path): PathExtractor,
 ) -> impl IntoResponse {
-    match state.media_handler.read(path) {
+    match state.media_handler.read(path).await {
         Ok(Some(metadata)) => (
             StatusCode::OK,
             serde_json::to_string_pretty(&metadata).unwrap(),
@@ -51,10 +52,11 @@ pub(crate) async fn download_media(
     }
 }
 
-pub(crate) async fn upload(
+#[debug_handler]
+pub(crate) async fn upload_media(
     State(state): State<AppState>,
     PathExtractor(path): PathExtractor,
-    mut payload: Multipart,
+    mut multipart: Multipart,
 ) -> impl IntoResponse {
     let named_transformation_storage = state.named_transformation_storage.clone();
     let transformation_template_registry = state.transformation_template_registry.clone();
@@ -63,7 +65,7 @@ pub(crate) async fn upload(
     let mut filedata = BytesMut::new();
     let mut transformation_chains: Vec<TransformationDescriptorChain> = Vec::new();
 
-    while let Some(mut field) = payload.next_field().await.unwrap() {
+    while let Some(mut field) = multipart.next_field().await.unwrap() {
         let field_name = field.name().unwrap().to_string();
         let field_data = field.bytes().await.unwrap();
 
@@ -107,8 +109,8 @@ pub(crate) async fn upload(
         .upload(path, transformation_chains, filedata)
         .await
     {
-        Ok(metadata) => metadata,
-        Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+        Ok(metadata) => Some(metadata),
+        Err(e) => None,
     };
 
     let json_response = match serde_json::to_string_pretty(&metadata) {
